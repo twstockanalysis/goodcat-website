@@ -5,6 +5,22 @@ waiting for the unavailable earlier candidate, and authorized this progress
 report to be pushed. This document records an interim observation, not a
 completed refresh, live process status, source approval or launch decision.
 
+## Bounded HTTP 308 recovery
+
+The first complete yield pass calculated 638 of 1,106 outstanding events and
+retained 468 failures: 461 HTTP 308 responses, two future ex-dividend dates and
+five events without a prior trading close. The observed 308 responses pointed
+back to the original TWSE STOCK_DAY request.
+
+The downloader now includes HTTP 308 in its existing bounded retry set alongside
+307. It still retries the configured official URL, never follows `Location`,
+keeps TLS/hostname verification, and raises the response error after exhausting
+the attempt limit. Tests cover 308 recovery plus 307/308 exhaustion and refusal
+to follow an unrelated redirect destination. No dividend, tax or price formula
+changes are introduced. A live retry of 00916 for June 2025 returned 21 daily
+closes. Remaining yield events must be rerun and audited before a final coverage
+claim; the interim figures below are not final results.
+
 ## Baseline and boundary
 
 - Code baseline: `9645afa9f357133c646dd90c2b113f6663e95005`, including #107/#108.

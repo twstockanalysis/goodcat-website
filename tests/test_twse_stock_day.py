@@ -213,7 +213,7 @@ class TestTWSEStockDay(unittest.TestCase):
         """暫時重新導向需退避重試，不可形成自動迴圈。"""
 
         redirect = Mock()
-        redirect.status_code = 307
+        redirect.status_code = 308
         redirect.headers = {}
 
         success = Mock()
@@ -241,6 +241,30 @@ class TestTWSEStockDay(unittest.TestCase):
                 for call in mock_get.call_args_list
             )
         )
+
+    @patch("backend.app.data_sources.twse_stock_day.time.sleep")
+    @patch("backend.app.data_sources.twse_stock_day.httpx.get")
+    def test_redirect_retries_are_bounded_and_never_follow_location(
+        self, mock_get: Mock, mock_sleep: Mock,
+    ) -> None:
+        for status in (307, 308):
+            with self.subTest(status=status):
+                mock_get.reset_mock()
+                mock_sleep.reset_mock()
+                response = Mock()
+                response.status_code = status
+                response.headers = {"Location": "https://example.invalid/other"}
+                response.raise_for_status.side_effect = RuntimeError("redirect exhausted")
+                mock_get.return_value = response
+                with self.assertRaisesRegex(RuntimeError, "redirect exhausted"):
+                    fetch_stock_day_month("0050", date(2026, 7, 1),
+                                          max_attempts=3, retry_backoff_seconds=0.25)
+                self.assertEqual(mock_get.call_count, 3)
+                self.assertEqual(mock_sleep.call_count, 2)
+                self.assertTrue(all(not call.kwargs["follow_redirects"]
+                                    for call in mock_get.call_args_list))
+                self.assertEqual(len({call.args[0] for call in mock_get.call_args_list}), 1)
+                self.assertNotIn("example.invalid", mock_get.call_args.args[0])
 
     def test_snapshot_is_saved(
         self,

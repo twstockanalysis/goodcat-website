@@ -32,6 +32,7 @@ SOURCE_ID = "twse_stock_day"
 TRANSIENT_HTTP_STATUS_CODES = frozenset(
     {
         307,
+        308,
         429,
         502,
         503,
