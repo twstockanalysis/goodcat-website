@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 from pathlib import Path
+from backend.app.data_sources.cathay_constituent_adapter import fetch_cathay_constituent_snapshot
 
 from backend.app.data_sources.direct_constituent_adapters import (
     DIRECT_CONSTITUENT_FETCHERS,
@@ -110,6 +111,8 @@ def import_official_constituents_with_status(
         raise ValueError(f"找不到 ETF：{normalized_code}")
     if normalized_issuer == "yuanta":
         value = fetch_yuanta_constituent_snapshot(normalized_code)
+    elif normalized_issuer == "cathay":
+        value = fetch_cathay_constituent_snapshot(normalized_code)
     else:
         fetcher = (
             DIRECT_CONSTITUENT_FETCHERS.get(normalized_issuer)

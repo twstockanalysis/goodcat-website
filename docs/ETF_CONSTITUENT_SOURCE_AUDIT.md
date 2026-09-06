@@ -16,9 +16,10 @@ against the TWSE `t187ap47_L` official fund master on 2026-08-13.
 Finding an official page is not equivalent to automation. Only `AUTOMATED`
 sources may be imported without additional issuer-specific work. The current
 registry has no entrypoint-only issuer: all applicable issuers returned a
-complete official holdings or PCF response during this audit, and twenty sources
-now have production adapters. Cathay and BlackRock remain fail-closed because
-their tested official automation paths still do not return usable holdings.
+complete official holdings or PCF response during this audit. Twenty-one sources
+now have adapters, including the 2026-09-06 Cathay recovery documented in
+`V5_3E_CATHAY_OFFICIAL_RECOVERY.md`. BlackRock remains fail-closed because its
+tested official automation paths still do not return usable holdings.
 
 ## Issuer matrix
 
@@ -28,7 +29,7 @@ their tested official automation paths still do not return usable holdings.
 | Fubon | 006208 | `AUTOMATED` | ETF-code query | PCF-to-assets adapter |
 | SinoPac | 00930 | `AUTOMATED` | ETF code in path | Official PCF adapter |
 | Mega | 00932 | `AUTOMATED` | Internal fund ID | Catalog mapping plus holdings adapter |
-| Cathay | 00878 | `FULL_DISCLOSURE_VERIFIED` | Internal fund code | Official holdings tab |
+| Cathay | 00878 | `AUTOMATED` | Catalog-resolved API fund code | Latest dated official stock list with strict coverage gates |
 | First | 00408A | `AUTOMATED` | Internal fund ID | ETF catalog plus reconciled asset-weight API |
 | Fuh Hwa | 00929 | `AUTOMATED` | Internal fund ID | Catalog mapping plus asset Excel adapter |
 | Capital | 00923 | `AUTOMATED` | Internal fund ID | Catalog identity plus complete buyback API |
@@ -108,8 +109,9 @@ their official production endpoints on 2026-08-13 and 2026-08-14:
   share classes `00625K` and `00643K` do not resolve to verified official
   holdings. They remain unavailable instead of borrowing another share class.
 - Cathay's official product page returned an edge-service HTTP 500 on the
-  `2026-09-02` recheck. Its status remains `FULL_DISCLOSURE_VERIFIED`, not
-  `AUTOMATED`.
+  `2026-09-02` recheck. It remained `FULL_DISCLOSURE_VERIFIED` at that time.
+  The 2026-09-06 official catalog/code/date recovery supersedes that limitation;
+  the new adapter does not imply all Cathay products pass direct-stock gates.
 
 These observations prove source availability and request mapping. They are not
 runtime guarantees: production adapters must still enforce schema, identity,
@@ -130,7 +132,8 @@ but they are not substitutes for issuer portfolio disclosure.
    Nomura, including identity, date and minimum-coverage validation.
 2. Stable internal-ID discovery: completed for Mega, Fuh Hwa, UOB, E.SUN,
    First, Capital, UPAM and KGI. Franklin Templeton SinoAm is also complete.
-   Revisit Cathay only when its official stock endpoint returns usable data.
+   Cathay catalog/code/date recovery was verified on 2026-09-06; candidate
+   import and fixed-universe replay remain follow-up validation.
 3. Stable product-ID or ISIN discovery: completed for J.P. Morgan and
    AllianceBernstein. Revisit BlackRock only when an officially accessible
    catalog and complete holdings response can be verified without bypassing
