@@ -1,6 +1,6 @@
 """現金流與稅後總報酬純計算服務。"""
 
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import Decimal
 
 from backend.app.models.cash_flow_analysis import (
     CalculationIssue,
@@ -13,30 +13,13 @@ from backend.app.models.cash_flow_analysis import (
     TotalReturnCalculationInput,
     TotalReturnCalculationResult,
 )
+from backend.app.services.calculation_precision import (
+    round_money as _round_money,
+    round_percentage as _round_percentage,
+)
 
-
-MONEY_QUANTUM = Decimal("0.01")
-PERCENT_QUANTUM = Decimal("0.000001")
 HUNDRED = Decimal("100")
 MONTHS_PER_YEAR = Decimal("12")
-
-
-def _round_money(value: Decimal) -> Decimal:
-    """將公開金額結果四捨五入至小數點後兩位。"""
-
-    return value.quantize(
-        MONEY_QUANTUM,
-        rounding=ROUND_HALF_UP,
-    )
-
-
-def _round_percentage(value: Decimal) -> Decimal:
-    """將公開百分比四捨五入至小數點後六位。"""
-
-    return value.quantize(
-        PERCENT_QUANTUM,
-        rounding=ROUND_HALF_UP,
-    )
 
 
 def _issue(
