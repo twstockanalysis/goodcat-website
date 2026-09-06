@@ -5,6 +5,7 @@ from decimal import Decimal
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from backend.app.database.connection import get_connection
 from backend.app.database.init_db import initialize_database
@@ -200,6 +201,48 @@ class TestMarketEligibilityIndex(unittest.TestCase):
         ).response
         self.assertEqual(first.snapshot_id, second.snapshot_id)
         self.assertTrue(first.snapshot_id.startswith("sha256:"))
+
+    def test_existing_etf_can_be_added_without_inventing_missing_overlap(self) -> None:
+        response = build_market_eligibility_index(
+            self.request(existing_holdings=[{"etf_code": "0050", "held_units": 100}]),
+            self.database_path, as_of_date=date(2026, 1, 1),
+        ).response
+        held = next(item for item in response.candidates if item.etf_code == "0050")
+        self.assertTrue(held.eligible_for_addition)
+        self.assertIsNone(held.holding_overlap_pct)
+        self.assertEqual(held.holding_overlap_status, "UNAVAILABLE")
+        warning = next(r for r in held.reasons if r.code == "HOLDING_OVERLAP_UNAVAILABLE")
+        self.assertEqual(warning.kind, "TRADEOFF")
+
+    def test_self_overlap_is_warning_but_distinct_etf_overlap_still_excludes(self) -> None:
+        from backend.app.services.constituent_overlap import GatedConstituentOverlap
+
+        evidence = GatedConstituentOverlap(
+            decision="READY", overlap_pct=Decimal("96.513"), reasons=(),
+            snapshot_dates=(date(2026, 1, 1),),
+        )
+        with patch(
+            "backend.app.services.market_eligibility_index.calculate_gated_portfolio_overlap",
+            return_value=evidence,
+        ):
+            response = build_market_eligibility_index(
+                self.request(existing_holdings=[{"etf_code": "0050", "held_units": 100}]),
+                self.database_path, as_of_date=date(2026, 1, 1),
+            ).response
+        items = {item.etf_code: item for item in response.candidates}
+        self.assertTrue(items["0050"].eligible_for_addition)
+        self.assertEqual(items["0050"].holding_overlap_pct, Decimal("96.513"))
+        self.assertFalse(items["0056"].eligible_for_addition)
+        self.assertIn("EXCESSIVE_HOLDING_OVERLAP", {r.code for r in items["0056"].reasons})
+
+    def test_existing_etf_still_requires_cash_and_component_evidence(self) -> None:
+        response = build_market_eligibility_index(
+            self.request(existing_holdings=[{"etf_code": "00878", "held_units": 100}]),
+            self.database_path, as_of_date=date(2026, 1, 1),
+        ).response
+        item = next(item for item in response.candidates if item.etf_code == "00878")
+        self.assertFalse(item.eligible_for_addition)
+        self.assertIn("MISSING_COMPLETE_DIVIDEND_COMPONENTS", {r.code for r in item.reasons})
 
     def test_future_dated_market_facts_fail_closed(self) -> None:
         connection = get_connection(self.database_path)

@@ -362,6 +362,21 @@ def build_market_eligibility_index(
             evaluate_allocation_concentration=False,
         )
         public_reasons = _public_candidate_reasons(eligibility_reasons)
+        if code in existing_codes:
+            # Adding an existing position is not introducing a redundant ETF.
+            # Keep measured overlap (or missing evidence) visible, but do not
+            # let self-overlap prohibit topping up an otherwise eligible ETF.
+            public_reasons = [
+                reason.model_copy(update={
+                    "kind": MarketEligibilityReasonKind.TRADEOFF,
+                    "message": reason.message + " 此標的是既有持股，重疊僅作風險提示，不單獨禁止增持。",
+                })
+                if reason.code in {
+                    "EXCESSIVE_HOLDING_OVERLAP", "HOLDING_OVERLAP_UNAVAILABLE"
+                }
+                else reason
+                for reason in public_reasons
+            ]
 
         component_selection = select_composite_component_mix(
             list_etf_component_history(code, database_path),
