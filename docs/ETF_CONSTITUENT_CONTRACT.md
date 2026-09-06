@@ -59,9 +59,15 @@ First's adapter ignores formally zero stock rows only after retaining their
 zero semantics and still requires all positive positions to reconcile exactly
 to the separately disclosed official stock-asset total.
 
-Twenty issuers now have production adapters. Cathay and BlackRock keep their
-verified disclosure status but remain fail-closed because the tested official
-automation paths do not currently return a reproducible usable response. JKO
+Twenty-one issuers now have adapters. Cathay resolves the API fund code through
+the public catalog, verifies ETF identity, requests the latest disclosed asset
+date and fetches stock rows for that date. Future or older-than-seven-day data,
+known nested ETF/derivative rows, duplicate identifiers, and stock coverage
+below 90% are rejected. Weights remain unnormalized. Latest-only retrieval is
+not a historical backfill: a disclosure after the evaluation date is rejected.
+See `V5_3E_CATHAY_OFFICIAL_RECOVERY.md` for the bounded live evidence and gaps.
+BlackRock remains fail-closed because its tested official automation paths do
+not return a reproducible usable response. JKO
 has no current equity constituent portfolio.
 The published Fugle Market Data and Sinopac Shioaji endpoint sets provide ETF
 identity and market/account data but not ETF constituent weights. V2-10 adds

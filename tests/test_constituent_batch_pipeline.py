@@ -87,6 +87,7 @@ class ConstituentBatchTestCase(unittest.TestCase):
             [
                 ("0050", "元大台灣50", 0),
                 ("00878", "國泰永續高股息", 0),
+                ("009813", "貝萊德標普500卓越50", 0),
                 ("00631L", "元大台灣50正2", 0),
                 ("00710B", "復華非投等債", 1),
                 ("0060", "新台灣", 0),
@@ -97,7 +98,8 @@ class ConstituentBatchTestCase(unittest.TestCase):
             for item in build_constituent_batch_plan(self.database_path)
         }
         self.assertEqual(statuses["0050"], "ELIGIBLE_AUTOMATED")
-        self.assertEqual(statuses["00878"], "SOURCE_NOT_AUTOMATED")
+        self.assertEqual(statuses["00878"], "ELIGIBLE_AUTOMATED")
+        self.assertEqual(statuses["009813"], "SOURCE_NOT_AUTOMATED")
         self.assertEqual(statuses["00631L"], "NOT_EQUITY")
         self.assertEqual(statuses["00710B"], "NOT_EQUITY")
         self.assertEqual(statuses["0060"], "UNMAPPED_ISSUER")

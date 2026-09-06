@@ -50,8 +50,8 @@ CONSTITUENT_SOURCES: dict[str, ConstituentSource] = {
     "cathay": ConstituentSource(
         "cathay", "國泰", "00878",
         "https://www.cathaysite.com.tw/ETF/detail/ECN?tab=etf3",
-        ConstituentSourceStatus.FULL_DISCLOSURE_VERIFIED,
-        "INTERNAL_FUND_CODE", "Official holdings tab; ETF-to-code discovery is required.",
+        ConstituentSourceStatus.AUTOMATED,
+        "INTERNAL_FUND_CODE", "Official catalog resolves API fund code independently of page route.",
     ),
     "first": ConstituentSource(
         "first", "第一金", "00408A",
