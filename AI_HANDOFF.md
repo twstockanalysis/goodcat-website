@@ -60,7 +60,17 @@ no `AI_HANDOFF.md` edit. Collaborators must verify those states live.
 
 ## Current repository-only exceptions
 
-None. Verify current work and review state through GitHub and Git.
+### Local validation runtime
+
+- Related Issue/PR: none; this exception concerns the local daily-close
+  repository refactor validation environment, which GitHub cannot reproduce.
+- The local `.venv` launcher references an unavailable Python installation.
+  Validation uses the desktop bundled Python 3.12, appending the existing
+  `.venv/Lib/site-packages` for missing pure-Python dependencies. This is not
+  validation of the original Python 3.13 environment.
+- Next safe action: validate with a working project Python 3.13 environment
+  before PR preparation and remove this exception when the local runtime is
+  repaired. No additional files or modules are claimed by this entry.
 
 ## Safety invariants
 

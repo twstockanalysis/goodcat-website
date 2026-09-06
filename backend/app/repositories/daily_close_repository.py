@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 from decimal import Decimal
 from pathlib import Path
+import sqlite3
 from typing import Iterable
 
 from backend.app.database.connection import get_connection
@@ -14,6 +15,36 @@ class DailyCloseUpsertSummary:
     total_records: int
     inserted_records: int
     updated_records: int
+
+
+def _count_existing_keys(
+    connection: sqlite3.Connection,
+    keys: list[tuple[str, str, str]],
+) -> int:
+    """分批透過複合主鍵計數，不載入其他歷史資料。"""
+
+    # 每個鍵使用三個參數；保留在 SQLite 傳統 999 參數上限內。
+    batch_size = 300
+    count = 0
+    for offset in range(0, len(keys), batch_size):
+        batch = keys[offset:offset + batch_size]
+        placeholders = ", ".join("(?, ?, ?)" for _ in batch)
+        row = connection.execute(
+            f"""
+            WITH incoming(etf_code, trade_date, source_id) AS (
+                VALUES {placeholders}
+            )
+            SELECT COUNT(*)
+            FROM incoming
+            JOIN etf_daily_close AS saved
+              ON saved.etf_code = incoming.etf_code
+             AND saved.trade_date = incoming.trade_date
+             AND saved.source_id = incoming.source_id;
+            """,
+            tuple(value for key in batch for value in key),
+        ).fetchone()
+        count += row[0]
+    return count
 
 
 def upsert_daily_close_records(
@@ -33,18 +64,11 @@ def upsert_daily_close_records(
     if not unique_records:
         return DailyCloseUpsertSummary(0, 0, 0)
 
-    keys = set(unique_records)
     connection = get_connection(database_path)
     try:
-        existing = {
-            (row["etf_code"], row["trade_date"], row["source_id"])
-            for row in connection.execute(
-                """
-                SELECT etf_code, trade_date, source_id
-                FROM etf_daily_close;
-                """
-            ).fetchall()
-        }
+        # 計數與寫入共用交易，避免其他寫入者使新增／更新統計失準。
+        connection.execute("BEGIN IMMEDIATE;")
+        updated_records = _count_existing_keys(connection, list(unique_records))
         connection.executemany(
             """
             INSERT INTO etf_daily_close (
@@ -73,9 +97,9 @@ def upsert_daily_close_records(
         connection.close()
 
     return DailyCloseUpsertSummary(
-        total_records=len(keys),
-        inserted_records=len(keys - existing),
-        updated_records=len(keys & existing),
+        total_records=len(unique_records),
+        inserted_records=len(unique_records) - updated_records,
+        updated_records=updated_records,
     )
 
 

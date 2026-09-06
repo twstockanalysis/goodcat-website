@@ -126,6 +126,17 @@ etf_code + trade_date + source_id
 
 Close prices are positive and retain the official source identifier.
 
+Daily-close upserts count distinct `(etf_code, trade_date, source_id)` input
+keys; the last record for a repeated key wins. An existing key counts as an
+update even when its price is unchanged. Existing-key counts use batches of
+at most 300 keys and indexed lookups rather than loading the historical table.
+Counting and writing share a `BEGIN IMMEDIATE` transaction so another writer
+cannot invalidate the summary between the read and write. This reserves the
+SQLite writer slot earlier; lock contention follows the connection's existing
+timeout behavior. Any failure rolls back the entire batch. Empty input returns
+zero counts without opening a database. Price storage and missing-data semantics
+are unchanged.
+
 ### `etf_dividend`
 
 Uniqueness:
