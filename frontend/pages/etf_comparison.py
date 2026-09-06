@@ -27,6 +27,7 @@ from frontend.query_state import (
 )
 from frontend.ui.formatters import (
     asset_type_label,
+    format_amount,
     format_iso_date,
     format_number,
     format_percentage as format_shared_percentage,
@@ -289,7 +290,8 @@ def render_monthly_combination_analysis(
             with column:
                 st.markdown(f"**{labels[code]}**")
                 unit_price = st.number_input(
-                    "每單位價格（TWD）",
+                    "每單位價格（NTD）",
+                    format="%.0f",
                     min_value=0.01,
                     value=30.0,
                     step=0.1,
@@ -431,6 +433,7 @@ def build_identity_rows(
                     format_optional_number(
                         etf["fund_size"],
                         suffix=" 億元",
+                        decimal_places=0,
                     )
                 ),
                 "費用率": (
@@ -550,16 +553,9 @@ def build_dividend_rows(
                 "latest_amount_per_unit"
             ] is None
             else (
-                format_optional_number(
-                    dividend[
-                        "latest_amount_per_unit"
-                    ],
-                    decimal_places=4,
-                )
-                + " "
-                + str(
-                    dividend["currency"]
-                    or "TWD"
+                format_amount(
+                    dividend["latest_amount_per_unit"],
+                    dividend["currency"],
                 )
             )
         )

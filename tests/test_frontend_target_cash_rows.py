@@ -30,8 +30,8 @@ class TestFrontendTargetCashRows(unittest.TestCase):
 
         self.assertEqual(rows[0]["年化稅前現金"], "無法計算")
         self.assertEqual(rows[0]["年化稅後現金"], "無法計算")
-        self.assertEqual(rows[1]["年化稅前現金"], "0 TWD")
-        self.assertEqual(rows[1]["年化稅後現金"], "0 TWD")
+        self.assertEqual(rows[1]["年化稅前現金"], "0 NTD")
+        self.assertEqual(rows[1]["年化稅後現金"], "0 NTD")
 
 
 if __name__ == "__main__":

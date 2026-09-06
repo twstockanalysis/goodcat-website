@@ -214,6 +214,7 @@ def format_fund_size(
         suffix=" 億元",
         missing_text="資料抓取中",
         invalid_text="資料格式異常",
+        decimal_places=0,
     )
 
 
@@ -568,6 +569,7 @@ def render_price_history_chart(
                     "type": "quantitative",
                     "scale": {"zero": False},
                     "axis": {
+                        "format": ",.0f",
                         "title": None,
                     },
                 },
@@ -580,7 +582,7 @@ def render_price_history_chart(
                     {
                         "field": "收盤價",
                         "type": "quantitative",
-                        "format": ".2f",
+                        "format": ",.0f",
                     },
                 ],
             },
@@ -744,18 +746,18 @@ def format_cash_stock_dividend(
 ) -> str:
     """以現金／股票順序顯示每單位股利，保留缺值。"""
 
-    def format_value(value: Any) -> str:
+    def format_value(value: Any, decimal_places: int) -> str:
         return format_number(
             value,
-            decimal_places=4,
+            decimal_places=decimal_places,
             trim_trailing_zeros=True,
             missing_text="—",
             invalid_text="資料格式異常",
         )
 
     return (
-        f"{format_value(cash_value)}/"
-        f"{format_value(stock_value)}"
+        f"{format_value(cash_value, 0)}/"
+        f"{format_value(stock_value, 4)}"
     )
 
 
@@ -1192,7 +1194,7 @@ def build_component_display_rows(
                 "金額": (
                     format_number(
                         component_amount,
-                        decimal_places=4,
+                        decimal_places=0,
                         trim_trailing_zeros=True,
                     )
                     if component_amount is not None
@@ -1359,6 +1361,10 @@ def _render_dividend_summary_card(
                 annual_dividend_rows,
                 {
                     "height": 280,
+                    "transform": [{
+                        "calculate": "format(datum['每單位股利'], datum['股利類型'] === '現金股利' ? ',.0f' : '.4f')",
+                        "as": "股利顯示",
+                    }],
                     "layer": [
                         {
                             "mark": {
@@ -1388,6 +1394,7 @@ def _render_dividend_summary_card(
                                     "axis": {
                                         "title": None,
                                         "tickCount": 6,
+                                        "format": ",.0f",
                                     },
                                 },
                                 "color": {
@@ -1420,9 +1427,9 @@ def _render_dividend_summary_card(
                                         "type": "nominal",
                                     },
                                     {
-                                        "field": "每單位股利",
-                                        "type": "quantitative",
-                                        "format": ".4f",
+                                        "field": "股利顯示",
+                                        "type": "nominal",
+                                        "title": "現金／股票股利",
                                     },
                                     {
                                         "field": "配息次序",
@@ -2297,22 +2304,22 @@ def _render_tax_reinvestment_result(result: dict[str, Any]) -> None:
                 ),
                 "可使用現金": format_shared_amount(
                     item.get("usable_cash"), calculation["currency"],
-                    decimal_places=2,
+                    decimal_places=0,
                 ),
                 "再投入現金": format_shared_amount(
                     item.get("reinvested_cash"), calculation["currency"],
-                    decimal_places=2,
+                    decimal_places=0,
                 ),
                 "期末單位數": format_number(
                     item.get("ending_units"), decimal_places=4
                 ),
                 "期末價值": format_shared_amount(
                     item.get("ending_value"), calculation["currency"],
-                    decimal_places=2,
+                    decimal_places=0,
                 ),
                 "估算稅與補充保費": format_shared_amount(
                     item.get("modeled_tax_cost"), calculation["currency"],
-                    decimal_places=2,
+                    decimal_places=0,
                 ),
                 "稅後總報酬": format_shared_percentage(
                     item.get("after_tax_total_return_pct"), signed=True
@@ -2342,12 +2349,12 @@ def build_target_monthly_cash_rows(
                 "年化稅前現金": format_shared_amount(
                     item.get("annualized_gross_cash"),
                     missing_text="無法計算",
-                    decimal_places=2,
+                    decimal_places=0,
                 ),
                 "年化稅後現金": format_shared_amount(
                     item.get("annualized_after_tax_cash"),
                     missing_text="無法計算",
-                    decimal_places=2,
+                    decimal_places=0,
                 ),
                 "最近入帳日": format_iso_date(
                     item.get("latest_payment_date")
@@ -2453,7 +2460,7 @@ def render_base_target_analysis(
 
     st.info(
         "計算採用官方收盤價 "
-        f"{latest_close['close_price']:.2f} TWD（{latest_close['trade_date']}；"
+        f"{latest_close['close_price']:,.0f} NTD（{latest_close['trade_date']}；"
         f"來源 {latest_close['source_id']}），價格不可手動覆寫。"
     )
     with st.form(
@@ -2466,7 +2473,8 @@ def render_base_target_analysis(
                 "目前持有單位數", min_value=0, value=0, step=100
             )
             monthly_target = st.number_input(
-                "每月稅後現金目標（TWD）",
+                "每月稅後現金目標（NTD）",
+                format="%.0f",
                 min_value=0.0,
                 value=3000.0,
                 step=500.0,
@@ -2540,13 +2548,15 @@ def render_tax_reinvestment_analysis(
                 "持有單位數", min_value=0.0, value=1000.0, step=100.0
             )
             unit_price = st.number_input(
-                "目前每單位價格（TWD）",
+                "目前每單位價格（NTD）",
+                format="%.0f",
                 min_value=0.01,
                 value=30.0,
                 step=0.1,
             )
             monthly_target = st.number_input(
-                "每月希望保留的現金（TWD）",
+                "每月希望保留的現金（NTD）",
+                format="%.0f",
                 min_value=0.0,
                 value=3000.0,
                 step=500.0,

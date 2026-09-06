@@ -33,7 +33,7 @@ def validate_user_conditions(payload: object) -> dict[str, Any]:
     if required - payload.keys():
         raise APIResponseError("使用者條件回應缺少必要欄位")
     if payload["currency"] != "TWD":
-        raise APIResponseError("使用者條件幣別必須為 TWD")
+        raise APIResponseError("使用者條件幣別必須為 NTD")
     return payload
 
 
@@ -54,7 +54,7 @@ def validate_manual_holding(payload: object) -> dict[str, Any]:
     if required - payload.keys():
         raise APIResponseError("手動持有部位回應缺少必要欄位")
     if payload["currency"] != "TWD":
-        raise APIResponseError("手動持有部位幣別必須為 TWD")
+        raise APIResponseError("手動持有部位幣別必須為 NTD")
     return payload
 
 
@@ -97,7 +97,7 @@ def validate_current_holding_analysis(payload: object) -> dict[str, Any]:
     if required - payload.keys():
         raise APIResponseError("目前持倉分析回應缺少必要欄位")
     if payload["currency"] != "TWD":
-        raise APIResponseError("目前持倉分析幣別必須為 TWD")
+        raise APIResponseError("目前持倉分析幣別必須為 NTD")
     if not isinstance(payload["holdings"], list):
         raise APIResponseError("目前持倉分析 holdings 格式不正確")
     if not isinstance(payload["unavailable_fields"], list):

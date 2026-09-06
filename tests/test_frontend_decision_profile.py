@@ -44,7 +44,7 @@ class TestFrontendDecisionProfile(unittest.TestCase):
                 ]
             }
         )
-        self.assertEqual(rows[0]["參考部位價值"], "35,500.00 TWD")
+        self.assertEqual(rows[0]["參考部位價值"], "35,500 NTD")
         self.assertEqual(rows[0]["價格日期"], "未提供")
         self.assertEqual(rows[0]["管理方式"], "被動式")
 
@@ -94,8 +94,8 @@ class TestFrontendDecisionProfile(unittest.TestCase):
                 "annual_after_tax_cash_after": None,
             }
         )
-        self.assertEqual(rows[0]["目前持倉"], "30,000.00 TWD")
-        self.assertEqual(rows[0]["加入候選後"], "32,000.00 TWD")
+        self.assertEqual(rows[0]["目前持倉"], "30,000 NTD")
+        self.assertEqual(rows[0]["加入候選後"], "32,000 NTD")
         self.assertEqual(rows[1]["目前持倉"], "無法計算")
 
     def test_short_history_projection_warning_is_explicit(self):
@@ -212,7 +212,7 @@ page.render_decision_profile()
         ).click().run(timeout=10)
         self.assertEqual(app.exception, [])
         metric_values = {item.label: item.value for item in app.metric}
-        self.assertEqual(metric_values["目前部位總值"], "35,500.00 TWD")
+        self.assertEqual(metric_values["目前部位總值"], "35,500 NTD")
         self.assertEqual(metric_values["年度目標覆蓋率"], "60.00%")
 
     def test_candidate_result_renders_deltas_and_reasons(self):

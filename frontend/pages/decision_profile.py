@@ -56,12 +56,12 @@ def build_holding_rows(profile: dict[str, Any]) -> list[dict[str, str]]:
                 "資產類型": asset_type_label(item["is_bond"]),
                 "持有單位": f"{units:,}",
                 "參考單價": (
-                    f"{format_number(unit_price, decimal_places=2)} TWD"
+                    f"{format_number(unit_price, decimal_places=0)} NTD"
                     if unit_price is not None
                     else "尚未取得"
                 ),
                 "參考部位價值": (
-                    f"{format_number(reference_value, decimal_places=2)} TWD"
+                    f"{format_number(reference_value, decimal_places=0)} NTD"
                     if reference_value is not None
                     else "無法計算"
                 ),
@@ -89,12 +89,12 @@ def build_analysis_holding_rows(
             {
                 "ETF": f"{item['etf_code']} {item['name']}",
                 "目前部位價值": (
-                    f"{format_number(current_value, decimal_places=2)} TWD"
+                    f"{format_number(current_value, decimal_places=0)} NTD"
                     if current_value is not None
                     else "無法計算"
                 ),
                 "年均稅前配息現金": (
-                    f"{format_number(annual_cash, decimal_places=2)} TWD"
+                    f"{format_number(annual_cash, decimal_places=0)} NTD"
                     if annual_cash is not None
                     else "無法計算"
                 ),
@@ -157,7 +157,8 @@ def _metric_value(value: Any, *, suffix: str = "") -> str:
     parsed = _decimal(value)
     if parsed is None:
         return "無法計算"
-    return f"{format_number(parsed, decimal_places=2)}{suffix}"
+    precision = 0 if suffix == " NTD" else 2
+    return f"{format_number(parsed, decimal_places=precision)}{suffix}"
 
 
 def build_short_history_projection_warning(
@@ -207,17 +208,17 @@ def render_current_holding_analysis_result(
     with st.container(horizontal=True):
         st.metric(
             "目前部位總值",
-            _metric_value(analysis.get("total_current_value"), suffix=" TWD"),
+            _metric_value(analysis.get("total_current_value"), suffix=" NTD"),
             border=True,
         )
         st.metric(
             "年均稅前配息現金",
-            _metric_value(cash_flow.get("gross_distribution_cash"), suffix=" TWD"),
+            _metric_value(cash_flow.get("gross_distribution_cash"), suffix=" NTD"),
             border=True,
         )
         st.metric(
             "年均稅後可用現金",
-            _metric_value(cash_flow.get("after_tax_usable_cash"), suffix=" TWD"),
+            _metric_value(cash_flow.get("after_tax_usable_cash"), suffix=" NTD"),
             border=True,
         )
         st.metric(
@@ -256,12 +257,12 @@ def build_candidate_comparison_rows(
     """建立候選加入前後的小型靜態比較表。"""
 
     fields = [
-        ("目前部位總值", "total_value_before", "total_value_after", " TWD"),
+        ("目前部位總值", "total_value_before", "total_value_after", " NTD"),
         (
             "年均稅後可用現金",
             "annual_after_tax_cash_before",
             "annual_after_tax_cash_after",
-            " TWD",
+            " NTD",
         ),
         (
             "年度目標覆蓋率",
@@ -273,7 +274,7 @@ def build_candidate_comparison_rows(
             "資金缺口",
             "funding_shortfall_before",
             "funding_shortfall_after",
-            " TWD",
+            " NTD",
         ),
         (
             "情境稅後總報酬率",
@@ -377,7 +378,7 @@ def render_candidate_holding_analysis_result(
     with st.container(horizontal=True):
         st.metric(
             "候選投入金額",
-            _metric_value(comparison.get("additional_capital"), suffix=" TWD"),
+            _metric_value(comparison.get("additional_capital"), suffix=" NTD"),
             border=True,
         )
         st.metric(
@@ -390,14 +391,14 @@ def render_candidate_holding_analysis_result(
         st.metric(
             "稅後現金變化",
             _metric_value(
-                comparison.get("annual_after_tax_cash_delta"), suffix=" TWD"
+                comparison.get("annual_after_tax_cash_delta"), suffix=" NTD"
             ),
             border=True,
         )
         st.metric(
             "資金缺口減少",
             _metric_value(
-                comparison.get("funding_shortfall_reduction"), suffix=" TWD"
+                comparison.get("funding_shortfall_reduction"), suffix=" NTD"
             ),
             border=True,
         )
@@ -465,7 +466,8 @@ def render_decision_profile() -> None:
         condition_columns = st.columns(3)
         with condition_columns[0]:
             monthly_target = st.number_input(
-                "每月稅後現金目標（TWD）",
+                "每月稅後現金目標（NTD）",
+                format="%.0f",
                 min_value=0.0,
                 value=float(conditions.get("monthly_after_tax_target", 3000)),
                 step=500.0,
@@ -657,7 +659,8 @@ def render_decision_profile() -> None:
             )
         with candidate_columns[1]:
             candidate_price = st.number_input(
-                "候選參考單價（TWD）",
+                "候選參考單價（NTD）",
+                format="%.0f",
                 min_value=0.01,
                 value=20.0,
                 step=0.1,

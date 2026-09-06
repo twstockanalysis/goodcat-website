@@ -365,25 +365,25 @@ def build_monthly_rows(result: dict[str, Any]) -> list[dict[str, str]]:
                 "目標月份": "是" if item["selected"] else "—",
                 "歷史年均稅前現金": format_number(
                     item.get("gross_cash"),
-                    decimal_places=2,
-                    suffix=" TWD",
+                    decimal_places=0,
+                    suffix=" NTD",
                     missing_text="無法計算",
                 ),
                 "扣除後可用現金": format_number(
                     item.get("after_tax_cash"),
-                    decimal_places=2,
-                    suffix=" TWD",
+                    decimal_places=0,
+                    suffix=" NTD",
                     missing_text="無法計算",
                 ),
                 "現金流目標": format_number(
                     item.get("target_after_tax_cash"),
-                    decimal_places=2,
-                    suffix=" TWD",
+                    decimal_places=0,
+                    suffix=" NTD",
                 ),
                 "尚缺金額": format_number(
                     item.get("shortfall"),
-                    decimal_places=2,
-                    suffix=" TWD",
+                    decimal_places=0,
+                    suffix=" NTD",
                     missing_text="無法計算",
                 ),
             }
@@ -400,14 +400,14 @@ def build_holding_rows(result: dict[str, Any]) -> list[dict[str, str]]:
             "持有股數": f"{int(item['held_units']):,}",
             "官方收盤價": format_number(
                 item.get("unit_price"),
-                decimal_places=2,
-                suffix=" TWD",
+                decimal_places=0,
+                suffix=" NTD",
                 missing_text="尚未取得",
             ),
             "目前部位價值": format_number(
                 item.get("current_value"),
-                decimal_places=2,
-                suffix=" TWD",
+                decimal_places=0,
+                suffix=" NTD",
                 missing_text="無法計算",
             ),
             "價格日期": item.get("price_as_of_date") or "尚未取得",
@@ -430,8 +430,8 @@ def render_public_planner_result(result: dict[str, Any]) -> None:
             "目前持股總值",
             format_number(
                 result.get("total_current_value"),
-                decimal_places=2,
-                suffix=" TWD",
+                decimal_places=0,
+                suffix=" NTD",
                 missing_text="無法計算",
             ),
             border=True,
@@ -471,14 +471,14 @@ def build_addition_rows(result: dict[str, Any]) -> list[dict[str, str]]:
             "增加股數": f"{int(item['additional_shares']):,}",
             "參考價格": format_number(
                 item.get("reference_price"),
-                decimal_places=2,
-                suffix=" TWD",
+                decimal_places=0,
+                suffix=" NTD",
             ),
             "價格日期": item.get("reference_price_as_of") or "未提供",
             "預估所需資金": format_number(
                 item.get("required_capital"),
-                decimal_places=2,
-                suffix=" TWD",
+                decimal_places=0,
+                suffix=" NTD",
             ),
             "支援月份": "、".join(
                 f"{month} 月" for month in item.get("supported_target_months", [])
@@ -494,28 +494,28 @@ def build_allocation_month_rows(result: dict[str, Any]) -> list[dict[str, str]]:
             "月份": f"{int(item['month'])} 月",
             "目前可用現金": format_number(
                 item.get("current_after_tax_cash"),
-                decimal_places=2,
-                suffix=" TWD",
+                decimal_places=0,
+                suffix=" NTD",
             ),
             "新增現金": format_number(
                 item.get("added_after_tax_cash"),
-                decimal_places=2,
-                suffix=" TWD",
+                decimal_places=0,
+                suffix=" NTD",
             ),
             "配置後現金": format_number(
                 item.get("modeled_after_tax_cash"),
-                decimal_places=2,
-                suffix=" TWD",
+                decimal_places=0,
+                suffix=" NTD",
             ),
             "目標": format_number(
                 item.get("target_after_tax_cash"),
-                decimal_places=2,
-                suffix=" TWD",
+                decimal_places=0,
+                suffix=" NTD",
             ),
             "尚缺": format_number(
                 item.get("shortfall"),
-                decimal_places=2,
-                suffix=" TWD",
+                decimal_places=0,
+                suffix=" NTD",
             ),
         }
         for item in result.get("monthly_results", [])
@@ -531,8 +531,8 @@ def build_resulting_holding_rows(result: dict[str, Any]) -> list[dict[str, str]]
             "配置後股數": f"{int(item['resulting_shares']):,}",
             "配置後市值": format_number(
                 item.get("resulting_value"),
-                decimal_places=2,
-                suffix=" TWD",
+                decimal_places=0,
+                suffix=" NTD",
             ),
             "市值占比": format_number(
                 item.get("allocation_pct"),
@@ -580,8 +580,8 @@ def render_plan_preview(plan: dict[str, Any]) -> None:
             "新增資金：**"
             + format_number(
                 result.get("total_required_additional_capital"),
-                decimal_places=2,
-                suffix=" TWD",
+                decimal_places=0,
+                suffix=" NTD",
             )
             + "**"
         )
@@ -619,8 +619,8 @@ def render_addition_card(addition: dict[str, Any], *, strategy: str) -> None:
             "預估所需資金",
             format_number(
                 addition.get("required_capital"),
-                decimal_places=2,
-                suffix=" TWD",
+                decimal_places=0,
+                suffix=" NTD",
             ),
             border=True,
         )
@@ -711,8 +711,8 @@ def render_allocation_results(payload: dict[str, Any]) -> str:
             "新增所需資金",
             format_number(
                 result.get("total_required_additional_capital"),
-                decimal_places=2,
-                suffix=" TWD",
+                decimal_places=0,
+                suffix=" NTD",
             ),
             border=True,
         )
@@ -730,8 +730,8 @@ def render_allocation_results(payload: dict[str, Any]) -> str:
             "尚缺總額",
             format_number(
                 summary["total_shortfall"],
-                decimal_places=2,
-                suffix=" TWD",
+                decimal_places=0,
+                suffix=" NTD",
             ),
             border=True,
         )
@@ -966,14 +966,14 @@ def render_portfolio_projection(
         st.metric(
             "組合起始價值",
             format_number(
-                projection.get("initial_value"), decimal_places=2, suffix=" TWD"
+                projection.get("initial_value"), decimal_places=0, suffix=" NTD"
             ),
             border=True,
         )
         st.metric(
             "年現金目標",
             format_number(
-                projection.get("annual_cash_target"), decimal_places=2, suffix=" TWD"
+                projection.get("annual_cash_target"), decimal_places=0, suffix=" NTD"
             ),
             border=True,
         )
@@ -1031,21 +1031,21 @@ def render_portfolio_projection(
             {
                 "配息使用方式": policy_labels[result["policy"]],
                 "期末持股價值": format_number(
-                    result["ending_value"], decimal_places=2, suffix=" TWD"
+                    result["ending_value"], decimal_places=0, suffix=" NTD"
                 ),
                 "期間可用現金": format_number(
-                    result["usable_cash"], decimal_places=2, suffix=" TWD"
+                    result["usable_cash"], decimal_places=0, suffix=" NTD"
                 ),
                 "投入金額": format_number(
-                    result["reinvested_cash"], decimal_places=2, suffix=" TWD"
+                    result["reinvested_cash"], decimal_places=0, suffix=" NTD"
                 ),
                 "可能的所得稅": format_number(
-                    result["modeled_income_tax"], decimal_places=2, suffix=" TWD"
+                    result["modeled_income_tax"], decimal_places=0, suffix=" NTD"
                 ),
                 "可能的二代健保": format_number(
                     result["modeled_supplementary_premium"],
-                    decimal_places=2,
-                    suffix=" TWD",
+                    decimal_places=0,
+                    suffix=" NTD",
                 ),
                 "稅後總報酬": format_number(
                     result["after_tax_total_return_pct"],
@@ -1055,17 +1055,27 @@ def render_portfolio_projection(
             }
         )
     st.dataframe(rows, hide_index=True)
-    st.line_chart(
+    st.vega_lite_chart(
         pd.DataFrame(
-            _portfolio_projection_chart_rows(
-                market,
-                selected_reinvestment_policy,
-            )
+            _portfolio_projection_chart_rows(market, selected_reinvestment_policy)
         ),
-        x="年數",
-        y=[selected_policy_label],
-        x_label="配置後年數",
-        y_label="持股價值加已領可用現金（TWD）",
+        {
+            "mark": {"type": "line", "tooltip": True},
+            "encoding": {
+                "x": {"field": "年數", "type": "quantitative", "title": "配置後年數"},
+                "y": {
+                    "field": selected_policy_label,
+                    "type": "quantitative",
+                    "title": "持股價值加已領可用現金（NTD）",
+                    "axis": {"format": ",.0f"},
+                },
+                "tooltip": [
+                    {"field": "年數", "type": "quantitative", "format": "d"},
+                    {"field": selected_policy_label, "type": "quantitative", "format": ",.0f"},
+                ],
+            },
+        },
+        width="stretch",
     )
 
     actual_count = int(projection.get("actual_component_holding_count", 0))
@@ -1142,6 +1152,7 @@ def render_public_planner() -> None:
             st.caption("咪會用主人的目標去計算")
             target_cash = st.number_input(
                 "每個目標月想領多少股利 (NTD)",
+                format="%d",
                 min_value=0,
                 value=3000,
                 step=500,
