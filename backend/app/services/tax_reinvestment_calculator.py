@@ -1,6 +1,6 @@
 """M10-4 台灣 ETF 稅務與再投資純計算服務。"""
 
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import Decimal
 
 from backend.app.models.tax_reinvestment import (
     ReinvestmentPolicy,
@@ -10,24 +10,13 @@ from backend.app.models.tax_reinvestment import (
     TaxScenarioIssue,
     TaxScenarioUnavailableReason,
 )
-
+from backend.app.services.calculation_precision import (
+    round_money as _money,
+    round_percentage as _percentage,
+    round_units as _units,
+)
 
 HUNDRED = Decimal("100")
-MONEY_QUANTUM = Decimal("0.01")
-PERCENT_QUANTUM = Decimal("0.000001")
-UNIT_QUANTUM = Decimal("0.000001")
-
-
-def _money(value: Decimal) -> Decimal:
-    return value.quantize(MONEY_QUANTUM, rounding=ROUND_HALF_UP)
-
-
-def _percentage(value: Decimal) -> Decimal:
-    return value.quantize(PERCENT_QUANTUM, rounding=ROUND_HALF_UP)
-
-
-def _units(value: Decimal) -> Decimal:
-    return value.quantize(UNIT_QUANTUM, rounding=ROUND_HALF_UP)
 
 
 def _issue(

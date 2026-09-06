@@ -328,3 +328,15 @@ facts exist. Missing facts never become a safe result or a formal zero.
 Every emitted warning includes an observation date, source identifier and the
 numeric/date evidence used by the rule. These are historical risk flags, not
 predictions or recommendations.
+
+## Shared output precision
+
+The cash-flow and tax-reinvestment calculators use
+`backend/app/services/calculation_precision.py` for Decimal output rounding:
+amounts retain two decimal places; percentages and fractional units retain
+six; all use explicit `ROUND_HALF_UP`, including negative values. The shared
+functions are called at the existing result boundaries. Intermediate
+distributions, taxes and reinvestment balances are not rounded earlier.
+Frontend integer display does not change this API calculation precision.
+Missing-input handling and ACTUAL/estimated/76W selection remain in their
+existing models and services.
