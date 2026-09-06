@@ -523,7 +523,7 @@ class TestFrontendDividendUI(
                 0.7,
                 "twd",
             ),
-            "0.7 TWD",
+            "1 NTD",
         )
 
         self.assertEqual(
@@ -610,7 +610,7 @@ class TestFrontendDividendUI(
 
         self.assertEqual(
             estimated_rows[0]["金額"],
-            "0.48",
+            "0",
         )
         self.assertEqual(
             list(estimated_rows[0]),
@@ -624,7 +624,7 @@ class TestFrontendDividendUI(
 
         self.assertEqual(
             actual_rows[0]["金額"],
-            "0.5",
+            "0",
         )
 
     def test_0050_estimated_components_are_converted_to_amounts(self) -> None:
@@ -654,8 +654,8 @@ class TestFrontendDividendUI(
             currency="TWD",
         )
 
-        self.assertEqual(rows[0]["金額"], "0.156")
-        self.assertEqual(rows[1]["金額"], "0.444")
+        self.assertEqual(rows[0]["金額"], "0")
+        self.assertEqual(rows[1]["金額"], "0")
         self.assertEqual(
             rows[1]["組成"],
             "已實現資本利得",
@@ -708,7 +708,7 @@ class TestFrontendDividendUI(
             rows[1]["年/季"],
             "2026/Q1",
         )
-        self.assertEqual(rows[0]["現金/股票"], "0.7/—")
+        self.assertEqual(rows[0]["現金/股票"], "1/—")
         self.assertEqual(rows[0]["發放日"], "2026-07-10")
         self.assertNotIn("股利發放日", rows[0])
         self.assertNotIn(
@@ -738,7 +738,7 @@ class TestFrontendDividendUI(
             format_dividend_event_row_label(
                 (
                     "2026/Q3",
-                    "0.12/—",
+                    "0/—",
                     "—",
                     "2026-08-05",
                     "2026-08-31",
@@ -778,11 +778,11 @@ class TestFrontendDividendUI(
 
         self.assertEqual(
             format_cash_stock_dividend(0.12, None),
-            "0.12/—",
+            "0/—",
         )
         self.assertEqual(
             format_cash_stock_dividend(0.12, 0),
-            "0.12/0",
+            "0/0",
         )
 
     def test_dividend_period_falls_back_to_ex_dividend_quarter(self) -> None:
@@ -958,7 +958,7 @@ class TestFrontendDividendUI(
         self.assertTrue(
             any(
                 "2026/Q2" in label
-                and "0.7/—" in label
+                and "1/—" in label
                 and "2.80%" in label
                 for label in expander_labels
             )
@@ -980,7 +980,7 @@ class TestFrontendDividendUI(
         )
 
         self.assertIn(
-            "0.7/—",
+            "1/—",
             metric_values,
         )
 

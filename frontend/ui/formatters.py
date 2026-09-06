@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+import math
 import re
 from typing import Any
 
@@ -28,7 +29,11 @@ def format_number(
     except (
         TypeError,
         ValueError,
+        OverflowError,
     ):
+        return invalid_text
+
+    if not math.isfinite(number):
         return invalid_text
 
     sign = "+" if signed else ""
@@ -37,7 +42,7 @@ def format_number(
         f"{number:{sign},.{decimal_places}f}"
     )
 
-    if trim_trailing_zeros:
+    if trim_trailing_zeros and "." in text:
         text = (
             text
             .rstrip("0")
@@ -73,7 +78,7 @@ def format_amount(
     *,
     missing_text: str = "尚無資料",
     invalid_text: str = "資料格式異常",
-    decimal_places: int = 4,
+    decimal_places: int = 0,
 ) -> str:
     """格式化每單位金額與幣別。"""
 
@@ -94,6 +99,8 @@ def format_amount(
     currency_text = str(
         currency or "TWD"
     ).strip().upper()
+    if currency_text == "TWD":
+        currency_text = "NTD"
 
     return (
         f"{amount_text} "

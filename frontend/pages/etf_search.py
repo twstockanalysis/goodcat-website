@@ -120,6 +120,7 @@ def format_etf_result_row(
     fund_size = format_optional_number(
         item["fund_size"],
         " 億元",
+        decimal_places=0,
     )
 
     expense_ratio = format_optional_number(

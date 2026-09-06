@@ -1,5 +1,22 @@
 # Streamlit Frontend
 
+## Shared numeric display
+
+`frontend/ui/formatters.py` centralizes number, percentage, and amount display.
+`None` uses the caller's missing-data label; finite zero remains a number.
+Non-finite values (`NaN`, positive/negative infinity), invalid input, and
+overflow during float conversion use the invalid-data label without adding
+currency or percentage suffixes. Trailing-zero trimming applies only after
+the decimal point: an integer display of `100` must remain `100`, never `1`.
+Amounts (including prices, dividends, fund size, cash flow, and chart labels)
+use integer display with grouping. Currency labels map ISO `TWD` to `NTD`;
+API requests and responses retain `TWD`. Input formatting preserves numeric
+values, following [Streamlit number_input guidance](https://docs.streamlit.io/develop/api-reference/widgets/st.number_input).
+Percentages and unit counts retain their existing precision. Fractional amounts
+may display as zero after rounding; missing amounts still use missing labels.
+These rules affect display only; they do not change financial calculations
+or ACTUAL, estimated, and formal `76W` data semantics.
+
 ## M11 decision profile and current-holding analysis page
 
 The public navigation includes `我的條件與持有部位`. The page reads and writes

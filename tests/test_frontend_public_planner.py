@@ -165,7 +165,7 @@ class TestFrontendPublicPlanner(unittest.TestCase):
         }
         rows = build_monthly_rows(result)
         self.assertEqual(rows[0]["尚缺金額"], "無法計算")
-        self.assertEqual(rows[1]["尚缺金額"], "0.00 TWD")
+        self.assertEqual(rows[1]["尚缺金額"], "0 NTD")
 
     def test_allocation_rows_use_beginner_facing_labels(self) -> None:
         additions = build_addition_rows(
@@ -199,8 +199,8 @@ class TestFrontendPublicPlanner(unittest.TestCase):
                 ]
             }
         )
-        self.assertEqual(months[0]["配置後現金"], "300.00 TWD")
-        self.assertEqual(months[0]["尚缺"], "0.00 TWD")
+        self.assertEqual(months[0]["配置後現金"], "300 NTD")
+        self.assertEqual(months[0]["尚缺"], "0 NTD")
 
     def test_long_term_rows_keep_unavailable_distinct_from_zero(self) -> None:
         evidence = {

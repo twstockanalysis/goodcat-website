@@ -1,6 +1,7 @@
 """Streamlit 共用格式化工具測試。"""
 
 import unittest
+from decimal import Decimal
 
 from frontend.ui.formatters import (
     asset_type_label,
@@ -21,6 +22,50 @@ class TestFrontendFormatters(
     unittest.TestCase
 ):
     """驗證跨頁面共用格式化語意。"""
+
+    def test_integer_formatting_preserves_significant_trailing_zeros(self):
+        for value, expected in [(100, "100"), (1000, "1,000"), (0, "0"), (-100, "-100")]:
+            with self.subTest(value=value):
+                self.assertEqual(
+                    format_number(value, decimal_places=0, trim_trailing_zeros=True),
+                    expected,
+                )
+                self.assertEqual(
+                    format_amount(value, decimal_places=0), expected + " NTD"
+                )
+        self.assertEqual(
+            format_number(100, decimal_places=0, trim_trailing_zeros=True,
+                          signed=True, suffix=" 股"),
+            "+100 股",
+        )
+
+    def test_fractional_trailing_zeros_are_trimmed_only_after_decimal_point(self):
+        for value, expected in [(100, "100"), (100.5, "100.5"), (0, "0")]:
+            with self.subTest(value=value):
+                self.assertEqual(
+                    format_number(value, decimal_places=4, trim_trailing_zeros=True),
+                    expected,
+                )
+
+    def test_nonfinite_and_overflow_values_use_invalid_label(self):
+        for value in [float("nan"), float("inf"), float("-inf"),
+                      "NaN", "Infinity", Decimal("NaN"),
+                      Decimal("1e10000"), 10 ** 10000]:
+            with self.subTest(value_type=type(value).__name__):
+                for formatter in (format_number, format_percentage, format_amount):
+                    self.assertEqual(formatter(value, invalid_text="格式異常"), "格式異常")
+
+    def test_missing_zero_and_invalid_values_remain_distinct(self):
+        self.assertEqual(format_amount(None), "尚無資料")
+        self.assertEqual(format_amount(0), "0 NTD")
+        self.assertEqual(format_amount(float("nan")), "資料格式異常")
+
+    def test_amount_display_rounds_without_changing_value_or_other_currency(self):
+        amount = Decimal("1234.56")
+        self.assertEqual(format_amount(amount, "twd"), "1,235 NTD")
+        self.assertEqual(format_amount(-amount, "NTD"), "-1,235 NTD")
+        self.assertEqual(format_amount(amount, "USD"), "1,235 USD")
+        self.assertEqual(amount, Decimal("1234.56"))
 
     def test_percentage_keeps_missing_and_zero_distinct(
         self,
@@ -66,7 +111,7 @@ class TestFrontendFormatters(
                 0.7000,
                 "twd",
             ),
-            "0.7 TWD",
+            "1 NTD",
         )
 
         self.assertEqual(
