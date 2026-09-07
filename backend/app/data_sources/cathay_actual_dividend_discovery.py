@@ -28,7 +28,7 @@ PUBLIC_DOCUMENT_BASE_URL = "https://cwapi.cathaysite.com.tw/"
 MAX_DISCOVERY_PAGES = 20
 MAX_PAGE_SIZE = 100
 
-_ACTUAL_TITLE_MARKERS = ("收益分配公告", "配息組成公告")
+_ACTUAL_TITLE_MARKERS = ("收益分配公告", "收益分配期中公告", "配息組成公告")
 _REJECTION_TITLE_MARKERS = ("期前", "預估", "估算")
 
 
