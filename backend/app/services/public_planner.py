@@ -1,5 +1,7 @@
 """V3-1 公開試算的唯讀現有持股基線。"""
 
+from backend.app.exceptions import ETFNotFoundError
+
 from datetime import date
 from decimal import Decimal, ROUND_HALF_UP
 from pathlib import Path
@@ -99,7 +101,7 @@ def analyze_public_planner_baseline(
     for holding in request.existing_holdings:
         etf = get_etf_by_code(holding.etf_code, database_path)
         if etf is None:
-            raise LookupError(holding.etf_code)
+            raise ETFNotFoundError(holding.etf_code)
 
         holding_issues: list[PublicPlannerIssue] = []
         latest_close = get_latest_daily_close(holding.etf_code, database_path)

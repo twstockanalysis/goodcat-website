@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends
 
 from backend.app.api.dependencies import get_database_path
 from backend.app.models.public_planner import PublicPlannerRequest, PublicPlannerResponse
@@ -48,14 +48,7 @@ def analyze_public_baseline(
     request: PublicPlannerRequest,
     database_path: Path = Depends(get_database_path),
 ) -> PublicPlannerResponse:
-    try:
-        return analyze_public_planner_baseline(request, database_path)
-    except LookupError as error:
-        code = str(error.args[0]).strip().upper()
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"找不到 ETF：{code}",
-        ) from error
+    return analyze_public_planner_baseline(request, database_path)
 
 
 @router.post(
@@ -67,14 +60,7 @@ def read_market_eligibility_index(
     request: MarketEligibilityIndexRequest,
     database_path: Path = Depends(get_database_path),
 ) -> MarketEligibilityIndexResponse:
-    try:
-        return build_market_eligibility_index(request, database_path).response
-    except LookupError as error:
-        code = str(error.args[0]).strip().upper()
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"找不到 ETF：{code}",
-        ) from error
+    return build_market_eligibility_index(request, database_path).response
 
 
 @router.post(
@@ -86,14 +72,7 @@ def create_integer_allocation(
     request: IntegerAllocationRequest,
     database_path: Path = Depends(get_database_path),
 ) -> IntegerAllocationResponse:
-    try:
-        return build_integer_allocation(request, database_path)
-    except LookupError as error:
-        code = str(error.args[0]).strip().upper()
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"找不到 ETF：{code}",
-        ) from error
+    return build_integer_allocation(request, database_path)
 
 
 @router.post(
@@ -105,14 +84,7 @@ def create_allocation_results(
     request: AllocationResultsRequest,
     database_path: Path = Depends(get_database_path),
 ) -> AllocationResultsResponse:
-    try:
-        return build_allocation_results(request, database_path)
-    except LookupError as error:
-        code = str(error.args[0]).strip().upper()
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"找不到 ETF：{code}",
-        ) from error
+    return build_allocation_results(request, database_path)
 
 
 @router.post(
@@ -124,14 +96,7 @@ def create_long_term_scenarios(
     request: LongTermScenarioRequest,
     database_path: Path = Depends(get_database_path),
 ) -> LongTermScenarioResponse:
-    try:
-        return build_long_term_scenarios(request, database_path)
-    except LookupError as error:
-        code = str(error.args[0]).strip().upper()
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"找不到 ETF：{code}",
-        ) from error
+    return build_long_term_scenarios(request, database_path)
 
 
 @router.post(
@@ -143,11 +108,4 @@ def create_portfolio_projections(
     request: PortfolioProjectionRequest,
     database_path: Path = Depends(get_database_path),
 ) -> PortfolioProjectionResponse:
-    try:
-        return build_portfolio_projections(request, database_path)
-    except LookupError as error:
-        code = str(error.args[0]).strip().upper()
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"找不到 ETF：{code}",
-        ) from error
+    return build_portfolio_projections(request, database_path)
