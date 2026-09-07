@@ -1,5 +1,6 @@
 """ETF 成分股不可變快照 Repository。"""
 
+from datetime import date
 from decimal import Decimal
 from pathlib import Path
 
@@ -55,17 +56,25 @@ def get_constituent_snapshot(
 def get_latest_constituent_snapshot(
     etf_code: str,
     database_path: str | Path | None = None,
+    *,
+    on_or_before: date | None = None,
 ) -> ETFConstituentSnapshot | None:
+    """Return the latest effective snapshot within an optional inclusive cutoff."""
+
     connection = get_connection(database_path)
     try:
         row = connection.execute(
             """
             SELECT * FROM etf_constituent_snapshot
-            WHERE etf_code = ?
+            WHERE etf_code = ? AND (? IS NULL OR as_of_date <= ?)
             ORDER BY as_of_date DESC, id DESC
             LIMIT 1;
             """,
-            (etf_code.strip().upper(),),
+            (
+                etf_code.strip().upper(),
+                on_or_before.isoformat() if on_or_before else None,
+                on_or_before.isoformat() if on_or_before else None,
+            ),
         ).fetchone()
         if row is None:
             return None
