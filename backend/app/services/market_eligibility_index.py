@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from backend.app.exceptions import ETFNotFoundError
+
 from dataclasses import dataclass, replace
 from datetime import date
 from decimal import Decimal, ROUND_HALF_UP
@@ -199,7 +201,7 @@ def build_market_eligibility_index(
     current_holdings = []
     for holding in request.existing_holdings:
         if get_etf_by_code(holding.etf_code, database_path) is None:
-            raise LookupError(holding.etf_code)
+            raise ETFNotFoundError(holding.etf_code)
         close = get_latest_daily_close(holding.etf_code, database_path)
         current_holdings.append(
             {

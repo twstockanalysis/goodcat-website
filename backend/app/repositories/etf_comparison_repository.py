@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from backend.app.exceptions import ETFNotFoundError
+
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -249,10 +251,7 @@ def build_etf_comparison(
         etf_rows.append(etf)
 
     if missing_codes:
-        raise KeyError(
-            "找不到 ETF："
-            + ", ".join(missing_codes)
-        )
+        raise ETFNotFoundError(*missing_codes)
 
     items: list[dict[str, Any]] = []
 

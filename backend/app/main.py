@@ -4,6 +4,8 @@ from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 
 from backend.app.api.router import api_router
+from backend.app.api.exception_handlers import etf_not_found_handler
+from backend.app.exceptions import ETFNotFoundError
 from backend.app.security import (
     SecurityBoundaryMiddleware,
     sanitized_internal_exception_handler,
@@ -42,6 +44,8 @@ def create_app(
         Exception,
         sanitized_internal_exception_handler,
     )
+
+    application.add_exception_handler(ETFNotFoundError, etf_not_found_handler)
 
     application.include_router(api_router)
 

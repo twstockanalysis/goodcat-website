@@ -228,25 +228,10 @@ def read_etf_comparison(
             detail=str(error),
         ) from error
 
-    try:
-        return build_etf_comparison(
-            codes=normalized_codes,
-            database_path=database_path,
-        )
-
-    except KeyError as error:
-        detail = (
-            error.args[0]
-            if error.args
-            else str(error)
-        )
-
-        raise HTTPException(
-            status_code=(
-                status.HTTP_404_NOT_FOUND
-            ),
-            detail=str(detail),
-        ) from error
+    return build_etf_comparison(
+        codes=normalized_codes,
+        database_path=database_path,
+    )
 
 
 @router.get(

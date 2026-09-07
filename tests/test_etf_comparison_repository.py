@@ -2,6 +2,8 @@
 
 import tempfile
 import unittest
+from backend.app.exceptions import ETFNotFoundError
+
 from pathlib import Path
 
 from backend.app.database.connection import (
@@ -225,7 +227,7 @@ class TestETFComparisonRepository(
     ) -> None:
         """確認不存在 ETF 不會被靜默略過。"""
 
-        with self.assertRaises(KeyError):
+        with self.assertRaises(ETFNotFoundError):
             build_etf_comparison(
                 [
                     "0050",

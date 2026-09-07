@@ -562,3 +562,18 @@ values are not reflected. Frontend API transport does not follow redirects.
 
 All API database access is injected through `get_database_path`, allowing tests
 to use isolated temporary SQLite databases.
+
+## ETF lookup error boundary
+
+The allocation-plan endpoints and ETF comparison endpoint return HTTP 404
+only when an explicit `ETFNotFoundError` identifies missing ETF records.
+The response remains `{"detail": "找不到 ETF：<codes>"}`, with multiple codes
+separated by comma and space. Domain failures are translated by a shared
+FastAPI exception handler. Unexpected `KeyError`, `IndexError`, and generic
+`LookupError` failures use the existing sanitized HTTP 500 response
+`{"detail": "Internal server error"}` rather than exposing internal fields
+as missing ETF codes. Request validation and successful responses are unchanged.
+
+Database choice: retain SQLite for the current single-host deployment.
+This error-boundary change does not migrate storage, alter schemas, enable WAL,
+or change financial calculations.
