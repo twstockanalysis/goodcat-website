@@ -102,6 +102,20 @@ class TestCathayActualDividendDiscovery(unittest.TestCase):
         self.assertEqual(result.candidates, ())
         self.assertEqual(len(result.rejections), 2)
 
+    def test_interim_announcement_is_candidate_not_actual_approval(self):
+        result = discover_cathay_actual_dividend_announcements(
+            etf_code="00878", page_payloads=[self.payload({
+                "id": 5524, "title": "國泰ETF收益分配期中公告",
+                "declareTime": "2024-11-13", "isPDF": True,
+                "filePath": "/uploads/07cathaynews__online/5524.pdf",
+            }, {
+                "id": 1, "title": "國泰ETF預估收益分配期中公告",
+                "declareTime": "2024-11-01", "isPDF": True,
+                "filePath": "/uploads/07cathaynews__online/1.pdf",
+            })])
+        self.assertEqual([c.announcement_id for c in result.candidates], [5524])
+        self.assertEqual(len(result.rejections), 1)
+
     def test_duplicate_candidates_are_deduplicated(self) -> None:
         item = {
             "id": 5991,

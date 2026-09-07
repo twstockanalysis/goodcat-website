@@ -174,3 +174,13 @@ tax-code inference
 
 Additional issuers require their own official-source review, fixture and
 adapter tests before activation.
+
+## Review-stage discovery follow-up
+
+The Cathay announcement-list discovery now also recognizes the interim-notice
+title variant `收益分配期中公告`. A discovered PDF is only a candidate: actual
+distribution amounts can coexist with estimated composition, even with tax
+codes printed in the appendix. `cathay_actual_evidence.screen_cathay_document`
+offers conservative, non-importing review routing; it never grants ACTUAL
+approval. See `V5_3_ACTUAL_EVIDENCE_REVIEW.md` for the contract, bounded evidence
+and unresolved direct-download access limitation.
