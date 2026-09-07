@@ -892,3 +892,19 @@ CREATE TABLE IF NOT EXISTS etf_constituent_position (
 
 CREATE INDEX IF NOT EXISTS idx_constituent_position_security
 ON etf_constituent_position (constituent_id, snapshot_id);
+
+-- Additive provenance for the existing etf_master.fund_size projection.
+CREATE TABLE IF NOT EXISTS etf_fund_size_evidence (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    etf_code TEXT NOT NULL REFERENCES etf_master(code),
+    fund_code TEXT NOT NULL,
+    as_of_date TEXT NOT NULL,
+    fetched_at TEXT NOT NULL,
+    currency TEXT NOT NULL CHECK (currency = 'TWD'),
+    total_net_assets_twd TEXT NOT NULL,
+    source_id TEXT NOT NULL,
+    source_url TEXT NOT NULL,
+    evidence_sha256 TEXT NOT NULL,
+    evidence_json TEXT NOT NULL,
+    UNIQUE(etf_code, as_of_date, source_id)
+);
