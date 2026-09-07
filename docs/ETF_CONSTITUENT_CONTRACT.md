@@ -27,6 +27,17 @@ allows issuer rounding; it is not permission to normalize invalid source data.
 
 ## Weighted overlap
 
+Historical evaluation selects the latest stored effective date **on or before**
+the evaluation date (inclusive), consistently for the quality gate and both
+pairwise and portfolio overlap. Future snapshots remain immutable but cannot
+mask earlier eligible evidence or enter the calculation. With only future
+snapshots, the gate retains `FUTURE_DATED_SNAPSHOT` and overlap remains null.
+The selected snapshot still must pass freshness and disclosed-weight gates;
+do not search further backwards to replace a failing selected snapshot.
+This is an effective-date replay, not proof that a later-fetched disclosure was
+available to investors at that historical time. Fetch timestamps remain stored.
+Repository callers without a cutoff retain latest-overall retrieval.
+
 Pairwise overlap uses:
 
 ```text

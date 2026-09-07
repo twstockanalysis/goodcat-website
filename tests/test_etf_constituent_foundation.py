@@ -24,6 +24,9 @@ from backend.app.services.constituent_overlap import (
     calculate_gated_portfolio_overlap,
     calculate_weighted_overlap,
 )
+from backend.app.services.constituent_data_quality import (
+    evaluate_constituent_data_quality,
+)
 
 
 class TestETFConstituentFoundation(unittest.TestCase):
@@ -91,6 +94,84 @@ class TestETFConstituentFoundation(unittest.TestCase):
 
         with self.assertRaises(sqlite3.IntegrityError):
             save_constituent_snapshot(payload, self.database_path)
+
+    def save_dated(self, code, day, identifier="2330", weight="90"):
+        payload = self.payload(code, [{
+            "constituent_id": identifier,
+            "constituent_name": "Test stock",
+            "weight_pct": weight,
+        }]).model_copy(update={"as_of_date": day})
+        return save_constituent_snapshot(payload, self.database_path)
+
+    def quality_on(self, day):
+        return evaluate_constituent_data_quality(
+            [{"etf_code": "0050", "issuer_key": "yuanta"}],
+            self.database_path, evaluated_on=day,
+        )
+
+    def test_repository_cutoff_is_inclusive_and_default_remains_latest(self):
+        past = self.save_dated("0050", date(2026, 8, 13))
+        future = self.save_dated("0050", date(2026, 8, 15), "2454")
+        self.assertEqual(get_latest_constituent_snapshot(
+            "0050", self.database_path).id, future.id)
+        self.assertEqual(get_latest_constituent_snapshot(
+            "0050", self.database_path, on_or_before=date(2026, 8, 13)
+        ).id, past.id)
+        self.assertIsNone(get_latest_constituent_snapshot(
+            "0050", self.database_path, on_or_before=date(2026, 8, 12)))
+
+    def test_quality_uses_past_snapshot_despite_future_snapshot(self):
+        self.save_dated("0050", date(2026, 8, 13))
+        self.save_dated("0050", date(2026, 8, 15))
+        quality = self.quality_on(date(2026, 8, 14))
+        self.assertEqual(quality["decision"], "READY")
+        self.assertEqual(quality["items"][0]["as_of_date"], "2026-08-13")
+
+    def test_future_only_stays_unavailable_for_quality_and_overlap(self):
+        for code in ("0050", "006208"):
+            self.save_dated(code, date(2026, 8, 15))
+        self.assertEqual(self.quality_on(date(2026, 8, 14))["items"][0]["reasons"],
+                         ["FUTURE_DATED_SNAPSHOT"])
+        pair = calculate_gated_pair_overlap(
+            "0050", "006208", self.database_path, evaluated_on=date(2026, 8, 14))
+        portfolio = calculate_gated_portfolio_overlap(
+            [{"etf_code": "0050", "held_units": 1, "unit_price": 100}],
+            "006208", self.database_path, evaluated_on=date(2026, 8, 14))
+        for result in (pair, portfolio):
+            self.assertEqual(result.decision, "NO_GO")
+            self.assertIsNone(result.overlap_pct)
+            self.assertIn("0050:FUTURE_DATED_SNAPSHOT", result.reasons)
+
+    def test_future_snapshot_does_not_rescue_stale_past(self):
+        self.save_dated("0050", date(2026, 8, 1))
+        self.save_dated("0050", date(2026, 8, 15))
+        quality = self.quality_on(date(2026, 8, 14))
+        self.assertEqual(quality["decision"], "NO_GO")
+        self.assertEqual(quality["items"][0]["reasons"], ["STALE_SNAPSHOT"])
+
+    def test_low_weight_selected_snapshot_cannot_fall_back_to_older_good_one(self):
+        self.save_dated("0050", date(2026, 8, 12))
+        self.save_dated("0050", date(2026, 8, 13), weight="50")
+        self.save_dated("0050", date(2026, 8, 15))
+        quality = self.quality_on(date(2026, 8, 14))
+        self.assertEqual(quality["decision"], "NO_GO")
+        self.assertEqual(quality["items"][0]["reasons"],
+                         ["INSUFFICIENT_DISCLOSED_WEIGHT"])
+
+    def test_pair_and_portfolio_use_same_past_weights_as_quality_gate(self):
+        for code in ("0050", "006208"):
+            self.save_dated(code, date(2026, 8, 13))
+        self.save_dated("0050", date(2026, 8, 15), "2454")
+        self.save_dated("006208", date(2026, 8, 15), "2317")
+        pair = calculate_gated_pair_overlap(
+            "0050", "006208", self.database_path, evaluated_on=date(2026, 8, 14))
+        portfolio = calculate_gated_portfolio_overlap(
+            [{"etf_code": "0050", "held_units": 1, "unit_price": 100}],
+            "006208", self.database_path, evaluated_on=date(2026, 8, 14))
+        for result in (pair, portfolio):
+            self.assertEqual(result.decision, "READY")
+            self.assertEqual(result.overlap_pct, Decimal("90.000000"))
+            self.assertEqual(set(result.snapshot_dates), {date(2026, 8, 13)})
 
     def test_weighted_overlap_uses_smaller_disclosed_weight(self):
         left = save_constituent_snapshot(

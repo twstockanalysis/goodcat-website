@@ -64,8 +64,13 @@ def evaluate_constituent_data_quality(
 
     for target in targets:
         snapshot = get_latest_constituent_snapshot(
-            target["etf_code"], database_path
+            target["etf_code"], database_path, on_or_before=evaluated_on
         )
+        if snapshot is None:
+            # Retain the future-only diagnostic without using future evidence.
+            snapshot = get_latest_constituent_snapshot(
+                target["etf_code"], database_path
+            )
         reasons: list[str] = []
         age_days: int | None = None
         if snapshot is None:

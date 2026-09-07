@@ -58,6 +58,7 @@ def calculate_gated_pair_overlap(
 ) -> GatedConstituentOverlap:
     """只有兩檔 ETF 的最新正式快照都合格時才回傳重疊率。"""
 
+    evaluated_on = evaluated_on or date.today()
     codes = [left_etf_code.strip().upper(), right_etf_code.strip().upper()]
     quality = evaluate_constituent_data_quality(
         _quality_targets(codes),
@@ -71,8 +72,12 @@ def calculate_gated_pair_overlap(
             reasons=_quality_reasons(quality),
             snapshot_dates=(),
         )
-    left = get_latest_constituent_snapshot(codes[0], database_path)
-    right = get_latest_constituent_snapshot(codes[1], database_path)
+    left = get_latest_constituent_snapshot(
+        codes[0], database_path, on_or_before=evaluated_on
+    )
+    right = get_latest_constituent_snapshot(
+        codes[1], database_path, on_or_before=evaluated_on
+    )
     assert left is not None and right is not None
     result = calculate_weighted_overlap(left, right)
     return GatedConstituentOverlap(
@@ -93,6 +98,7 @@ def calculate_gated_portfolio_overlap(
 ) -> GatedConstituentOverlap:
     """計算候選 ETF 與目前持倉市值加權成分的重疊率。"""
 
+    evaluated_on = evaluated_on or date.today()
     current_values: list[tuple[str, Decimal]] = []
     for holding in holdings:
         unit_price = holding.get("unit_price")
@@ -132,7 +138,9 @@ def calculate_gated_portfolio_overlap(
         )
 
     snapshots = {
-        code: get_latest_constituent_snapshot(code, database_path)
+        code: get_latest_constituent_snapshot(
+            code, database_path, on_or_before=evaluated_on
+        )
         for code in dict.fromkeys(codes)
     }
     assert all(snapshot is not None for snapshot in snapshots.values())
