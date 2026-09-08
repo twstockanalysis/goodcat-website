@@ -200,6 +200,31 @@ dividend event. An ACTUAL selection contributes only its formal `76W` ratio; an
 `EST_REALIZED_CAPITAL_GAIN`. Formal coverage metrics remain ACTUAL-only even
 when the fallback analysis is available.
 
+### Planning freshness (Issue #122)
+
+The owner-approved `select_planning_component_mix` is a separate planning
+entry point used by market eligibility, portfolio projections and single-ETF
+tax/reinvestment scenarios. It requires an explicit evaluation date and a
+known payment date on or before evaluation. Within the existing 18-calendar-
+month freshness window it selects the latest complete ACTUAL mix first, then
+the latest complete estimated mix. The exact 18-month anniversary is included;
+calendar month-end clipping uses the unchanged dividend-freshness helper.
+Input row order does not determine which date is newest. No complete fresh
+paid source means unavailable, not reuse of stale data or inferred zero.
+
+When a complete historical ACTUAL mix is stale and a fresh estimate is used,
+the selection retains that ACTUAL date for an explicit warning. Estimates
+remain `ESTIMATED_FALLBACK` with their original estimated codes. The market
+and portfolio issue code is `STALE_ACTUAL_COMPONENTS_FALLBACK`; this warning
+does not independently exclude a candidate. Other eligibility gates still
+apply. The single-ETF tax response exposes a `warnings` list rendered by the
+existing detail page. Fresh ACTUAL still takes precedence over newer estimates.
+
+Historical event detail, per-event capital-gain history, the undated legacy
+compatibility selector and formal ACTUAL/76W coverage retain their original
+semantics. This policy does not rewrite or import source rows. A planning
+selection is not a declaration that the historical ACTUAL record is invalid.
+
 ## Actual source processing
 
 ### Human-reviewed JSON

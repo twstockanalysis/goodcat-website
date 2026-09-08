@@ -31,7 +31,7 @@ from backend.app.repositories.dividend_repository import (
 )
 from backend.app.services.long_term_scenario import build_long_term_scenarios
 from backend.app.services.dividend_component_data import (
-    select_composite_component_mix,
+    select_planning_component_mix,
 )
 from backend.app.utils.date_tools import shift_months
 
@@ -146,7 +146,7 @@ def _holding_fact(
         elif annual_cash == 0:
             payments = 1
 
-    selection = select_composite_component_mix(
+    selection = select_planning_component_mix(
         list_etf_component_history(holding.etf_code, database_path),
         analysis_date=analysis_date,
     )
@@ -154,10 +154,16 @@ def _holding_fact(
         issues.append(
             _issue(
                 "COMPONENT_MIX_UNAVAILABLE",
-                "有歷史配息，但缺少完整的正式或估算配息組成。",
+                "有歷史配息，但缺少新鮮、已付款且完整的正式或估算配息組成。",
                 holding.etf_code,
             )
         )
+
+    if selection is not None and selection.freshness_warning:
+        issues.append(_issue(
+            "STALE_ACTUAL_COMPONENTS_FALLBACK", selection.freshness_warning,
+            holding.etf_code,
+        ))
 
     return PortfolioHoldingTaxFact(
         etf_code=holding.etf_code,

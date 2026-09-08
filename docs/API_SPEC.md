@@ -426,8 +426,13 @@ POST /api/v1/etfs/{code}/tax-reinvestment-scenarios
 The request supplies holdings, cash target, projection horizon, payment-count
 assumption, custom reinvestment percentage and a versioned Taiwan-individual
 tax rule. The server supplies historical distribution and price-return inputs
-and selects the newest complete ACTUAL component event, or a complete estimated
-fallback when no qualifying ACTUAL event is available.
+and selects the newest complete, paid, fresh ACTUAL component event, or a
+complete paid and fresh estimated fallback when no qualifying ACTUAL event
+is available. Freshness uses the existing 18-calendar-month boundary
+(anniversary inclusive); neither future payments nor stale mixes qualify.
+The additive `warnings: string[]` response field reports when a stale
+historical ACTUAL mix was bypassed in favor of a fresh estimate. An empty
+list is the default. The detail-page tax renderer displays these warnings.
 
 The response keeps `historical_facts` separate from `calculation`, returns all
 four reinvestment policies, echoes `projection_years`, and includes usable cash,
@@ -481,6 +486,13 @@ For each dividend event, the shared composite selector uses one complete
 `ESTIMATED_FALLBACK`. The analysis reads `76W` from an ACTUAL mix or
 `EST_REALIZED_CAPITAL_GAIN` from a fallback mix without renaming either code or
 mixing the two bases within one event.
+
+Historical per-event selection and formal coverage above are not subject to
+the planning freshness filter. Market eligibility and portfolio projection
+use the same freshness-aware planning selector as tax scenarios and expose
+`STALE_ACTUAL_COMPONENTS_FALLBACK` as a tradeoff/issue with the historical
+ACTUAL date. If no fresh complete paid mix exists, planning remains unavailable;
+old ACTUAL and formal `76W` facts remain present in the historical endpoints.
 
 ### Dividend event detail
 
