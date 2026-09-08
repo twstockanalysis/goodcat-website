@@ -295,6 +295,7 @@ class TaxReinvestmentHistoricalFacts(TaxReinvestmentBaseModel):
 class TaxReinvestmentAnalysisResult(TaxReinvestmentBaseModel):
     """ETF 稅務與再投資 API 回應。"""
 
+    warnings: list[str] = Field(default_factory=list)
     status: str = Field(pattern=r"^(AVAILABLE|PARTIAL)$")
     historical_facts: TaxReinvestmentHistoricalFacts
     calculation: TaxReinvestmentCalculationResult

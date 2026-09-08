@@ -7,6 +7,7 @@ from decimal import Decimal
 from backend.app.models.tax_reinvestment import (
     OfficialComponentAllocation,
 )
+from backend.app.services.target_analysis_data import is_dividend_data_stale
 
 
 @dataclass(frozen=True, slots=True)
@@ -28,6 +29,16 @@ class CompositeComponentSelection:
     source_date: date | None
     basis: str
     mix: list[OfficialComponentAllocation]
+    stale_actual_source_date: date | None = None
+
+    @property
+    def freshness_warning(self) -> str | None:
+        if self.stale_actual_source_date is None:
+            return None
+        return (
+            f"歷史正式配息組成（{self.stale_actual_source_date.isoformat()}）已過期；"
+            "本次規劃改用新鮮且已付款的完整估計組成，非正式所得組成。"
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -149,6 +160,45 @@ def select_composite_component_mix(
                 mix=selection.mix,
             )
     return None
+
+
+def select_planning_component_mix(
+    rows: list[dict], *, analysis_date: date,
+) -> CompositeComponentSelection | None:
+    """Prefer fresh paid ACTUAL, then fresh paid estimates; never alter history."""
+    paid = [
+        row for row in rows
+        if (paid_on := _to_date(row.get("payment_date"))) is not None
+        and paid_on <= analysis_date
+    ]
+    # Repository order is not part of this planning policy. Newest date wins
+    # within each basis; event id makes same-date ordering deterministic.
+    paid.sort(key=lambda row: (
+        _to_date(row.get("payment_date")), int(row["dividend_id"]),
+    ), reverse=True)
+    fresh = [
+        row for row in paid
+        if not is_dividend_data_stale(_to_date(row["payment_date"]), analysis_date)
+    ]
+    selected = select_composite_component_mix(fresh, analysis_date=analysis_date)
+    if selected is None or selected.basis != "ESTIMATED_FALLBACK":
+        return selected
+    historical_actual = select_latest_complete_actual_mix([
+        row for row in paid
+        if str(row.get("component_basis", "ACTUAL")).upper() == "ACTUAL"
+    ])
+    if historical_actual is None or historical_actual.source_date is None:
+        return selected
+    if not is_dividend_data_stale(historical_actual.source_date, analysis_date):
+        return selected
+    return CompositeComponentSelection(
+        dividend_id=selected.dividend_id,
+        source_event_id=selected.source_event_id,
+        source_date=selected.source_date,
+        basis=selected.basis,
+        mix=selected.mix,
+        stale_actual_source_date=historical_actual.source_date,
+    )
 
 
 def select_composite_realized_gain_history(

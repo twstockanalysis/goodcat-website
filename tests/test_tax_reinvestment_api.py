@@ -53,6 +53,39 @@ class TestTaxReinvestmentAPI(unittest.TestCase):
             },
         }
 
+    def test_stale_actual_falls_back_with_explicit_warning(self):
+        class FixedDate(date):
+            @classmethod
+            def today(cls):
+                return cls(2026, 9, 6)
+
+        module = 'backend.app.api.routers.target_analysis.'
+        rows = [
+            dict(dividend_id=1, source_event_id='old-actual', payment_date='2023-09-11',
+                 component_basis='ACTUAL', component_code='76W', ratio_pct=100),
+            dict(dividend_id=2, source_event_id='fresh-estimate', payment_date='2026-06-12',
+                 component_basis='ESTIMATED', component_code='EST_REALIZED_CAPITAL_GAIN', ratio_pct=100),
+        ]
+        loaded = TargetAnalysisData(monthly_income={
+            'analysis_currency':'TWD', 'window_start_date':date(2023,9,6),
+            'as_of_date':date(2026,9,6), 'total_amount_per_unit':6,
+        }, dividends=[], selected_performance={'period_code':'3Y','return_pct':3},
+            warnings=[], unavailable_fields=[])
+        with patch(module+'get_etf_by_code', return_value={'code':'00878'}), patch(
+            module+'load_target_analysis_data', return_value=loaded
+        ), patch(module+'list_etf_actual_component_history', return_value=rows), patch(
+            module+'date', FixedDate
+        ):
+            response = self.client.post('/api/v1/etfs/00878/tax-reinvestment-scenarios',
+                                        json=self.request_payload())
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        facts = body['historical_facts']
+        self.assertEqual(facts['component_calculation_basis'], 'ESTIMATED_FALLBACK')
+        self.assertEqual(facts['component_source_event_id'], 'fresh-estimate')
+        self.assertIsNone(facts['actual_component_mix'])
+        self.assertIn('2023-09-11', body['warnings'][0])
+
     def test_openapi_contains_tax_reinvestment_path(self) -> None:
         path = "/api/v1/etfs/{code}/tax-reinvestment-scenarios"
         self.assertIn(path, self.application.openapi()["paths"])

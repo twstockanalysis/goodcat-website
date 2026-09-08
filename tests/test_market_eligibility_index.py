@@ -113,6 +113,28 @@ class TestMarketEligibilityIndex(unittest.TestCase):
         values.update(updates)
         return MarketEligibilityIndexRequest(**values)
 
+    def test_stale_actual_uses_fresh_estimate_without_losing_formal_history(self):
+        connection = get_connection(self.database_path)
+        connection.execute("UPDATE etf_dividend_component SET component_basis='ESTIMATED', "
+                           "component_code='EST_DIVIDEND' WHERE dividend_id IN "
+                           "(SELECT id FROM etf_dividend WHERE etf_code='0050')")
+        connection.execute("INSERT INTO etf_dividend_component "
+                           "(dividend_id,component_code,component_basis,ratio_pct,source_id) "
+                           "SELECT id,'76W','ACTUAL',100,'TEST' FROM etf_dividend "
+                           "WHERE source_event_id='0050-2023'")
+        connection.commit()
+        connection.close()
+        built = build_market_eligibility_index(
+            self.request(), self.database_path, as_of_date=date(2026, 1, 1),
+        )
+        item = next(item for item in built.response.candidates if item.etf_code == '0050')
+        self.assertTrue(item.eligible_for_addition)
+        self.assertEqual(item.component_basis, 'ESTIMATED_FALLBACK')
+        self.assertEqual(item.component_source_date, date(2026, 1, 1))
+        self.assertTrue(item.actual_76w_available)
+        self.assertIn('STALE_ACTUAL_COMPONENTS_FALLBACK', [r.code for r in item.reasons])
+        self.assertNotIn('STALE_DIVIDEND_COMPONENTS', [r.code for r in item.reasons])
+
     def test_builds_full_master_index_and_keeps_scores_internal(self) -> None:
         built = build_market_eligibility_index(
             self.request(),

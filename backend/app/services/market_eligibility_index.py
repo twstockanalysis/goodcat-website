@@ -60,6 +60,7 @@ from backend.app.services.quality_grading import (
 )
 from backend.app.services.dividend_component_data import (
     select_composite_component_mix,
+    select_planning_component_mix,
 )
 from backend.app.services.target_analysis_data import is_dividend_data_stale
 
@@ -380,8 +381,9 @@ def build_market_eligibility_index(
                 for reason in public_reasons
             ]
 
-        component_selection = select_composite_component_mix(
-            list_etf_component_history(code, database_path),
+        component_rows = list_etf_component_history(code, database_path)
+        component_selection = select_planning_component_mix(
+            component_rows,
             analysis_date=analysis_date,
         )
         component_basis = component_selection.basis if component_selection else None
@@ -390,7 +392,7 @@ def build_market_eligibility_index(
                 _reason(
                     MarketEligibilityReasonKind.EXCLUDE,
                     "MISSING_COMPLETE_DIVIDEND_COMPONENTS",
-                    "缺少比例完整的正式或估算配息組成。",
+                    "缺少新鮮、已付款且比例完整的正式或估算配息組成。",
                 )
             )
         elif component_basis == "ESTIMATED_FALLBACK":
@@ -398,9 +400,25 @@ def build_market_eligibility_index(
                 _reason(
                     MarketEligibilityReasonKind.TRADEOFF,
                     "ESTIMATED_COMPONENTS_ONLY",
-                    "目前僅有比例完整的估算配息組成，尚無完整正式組成。",
+                    "本次規劃使用完整估算配息組成，沒有符合新鮮度的完整正式組成。",
                 )
             )
+        if component_selection is None:
+            historical_selection = select_composite_component_mix(
+                component_rows, analysis_date=analysis_date,
+            )
+            if (historical_selection is not None
+                and historical_selection.source_date is not None
+                and is_dividend_data_stale(historical_selection.source_date, analysis_date)):
+                extra_reasons.append(_reason(
+                    MarketEligibilityReasonKind.EXCLUDE, "STALE_DIVIDEND_COMPONENTS",
+                    "完整配息組成已過期，且沒有可使用的新鮮替代組成。",
+                ))
+        elif component_selection.freshness_warning:
+            extra_reasons.append(_reason(
+                MarketEligibilityReasonKind.TRADEOFF, "STALE_ACTUAL_COMPONENTS_FALLBACK",
+                component_selection.freshness_warning,
+            ))
         if component_selection is not None:
             component_date = component_selection.source_date
             if component_date is None:

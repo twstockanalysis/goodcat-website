@@ -2199,6 +2199,8 @@ def _build_tax_rule_payload(
 def _render_tax_reinvestment_result(result: dict[str, Any]) -> None:
     """顯示歷史事實與四種前瞻假設，不產生推薦。"""
 
+    for warning in result.get("warnings", []):
+        st.warning(warning)
     facts = result["historical_facts"]
     calculation = result["calculation"]
     component_basis = facts.get("component_calculation_basis")

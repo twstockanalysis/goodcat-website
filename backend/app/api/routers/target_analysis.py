@@ -64,7 +64,7 @@ from backend.app.services.tax_reinvestment_calculator import (
     calculate_tax_reinvestment_scenarios,
 )
 from backend.app.services.dividend_component_data import (
-    select_composite_component_mix,
+    select_planning_component_mix,
 )
 
 
@@ -441,7 +441,7 @@ def analyze_tax_reinvestment_scenarios(
         normalized_code,
         database_path,
     )
-    selection = select_composite_component_mix(
+    selection = select_planning_component_mix(
         component_rows,
         analysis_date=analysis_date,
     )
@@ -474,6 +474,8 @@ def analyze_tax_reinvestment_scenarios(
     )
 
     return TaxReinvestmentAnalysisResult(
+        warnings=([selection.freshness_warning]
+                  if selection is not None and selection.freshness_warning else []),
         status="PARTIAL" if calculation.issues else "AVAILABLE",
         historical_facts=TaxReinvestmentHistoricalFacts(
             component_dividend_id=(
