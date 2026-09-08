@@ -70,6 +70,26 @@ First's adapter ignores formally zero stock rows only after retaining their
 zero semantics and still requires all positive positions to reconcile exactly
 to the separately disclosed official stock-asset total.
 
+Nomura has a separate bounded 85%-90% stock-weight path (Issue #120). It
+requires a unique stock table with explicit columns and a same-date fund AUM
+and unique asset-summary table. The summary must disclose exactly one TWD
+stock amount; its formatted and raw amounts must agree. Summed disclosed
+stock weights must reconcile to stock assets / fund AUM * 100 within 0.005
+percentage points per disclosed row, capped at 0.25 percentage points. This
+allowance covers rounding of weights reported to at most two decimal places;
+it is not a proof of completeness below that precision. Missing, malformed or
+unreconciled evidence fails closed. Stocks below 85% remain rejected; stocks
+at or above 90% retain the prior source threshold. Nomura stock rows are no
+longer silently skipped when malformed. Duplicate identifiers remain rejected.
+Reported zero rows are preserved, not inferred. No non-stock row is imported
+and no weights are normalized. Other issuer thresholds are unchanged.
+
+Nomura retrieval optionally accepts an explicit historical `snapshot_on`,
+posts it as ISO `SearchDate`, rejects a future request and requires the returned
+stock date to match exactly. The default still requests latest data. Historical
+retrieval does not bypass the caller's evaluation-date/freshness quality gate.
+See `V5_3D_NOMURA_STOCK_RECOVERY.md` for local evidence and remaining gaps.
+
 Twenty-one issuers now have adapters. Cathay resolves the API fund code through
 the public catalog, verifies ETF identity, requests the latest disclosed asset
 date and fetches stock rows for that date. Future or older-than-seven-day data,

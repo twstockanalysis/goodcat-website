@@ -229,6 +229,57 @@ def parse_fubon_constituent_html(
     return result
 
 
+def _nomura_reconcile_stock_assets(data: dict, stock: dict, total: Decimal) -> None:
+    """Allow the 85%-90% cohort only with dated, independently totaled stocks."""
+    columns = stock.get("Columns", [])
+    if not isinstance(columns, list) or [c.get("Name") for c in columns if isinstance(c, dict)] != [
+        "股票代號", "股票名稱", "股數", "權重(%)",
+    ]:
+        raise ValueError("野村股票對帳缺少明確欄位")
+    assets = data.get("FundAsset")
+    summaries = [
+        table for table in data["Table"]
+        if isinstance(table, dict) and table.get("TableTitle") == ""
+        and isinstance(table.get("Columns"), list)
+        and [c.get("Name") for c in table["Columns"] if isinstance(c, dict)]
+        == ["項目", "金額", "幣別", "金額(原幣)"]
+    ]
+    if not isinstance(assets, dict) or len(summaries) != 1:
+        raise ValueError("野村股票對帳缺少唯一資產總額表")
+    summary = summaries[0]
+    effective = _parse_date(str(stock.get("NavDate") or ""), "野村")
+    if any(_parse_date(str(value or ""), "野村") != effective for value in (
+        assets.get("NavDate"), summary.get("NavDate"),
+    )):
+        raise ValueError("野村股票對帳日期不一致")
+    rows = summary.get("Rows")
+    if not isinstance(rows, list) or any(
+        not isinstance(row, list) or len(row) != 4 for row in rows
+    ):
+        raise ValueError("野村股票對帳資產列格式不正確")
+    stock_totals = [row for row in rows if row[0] == "股票"]
+    if len(stock_totals) != 1 or stock_totals[0][2] != "TWD":
+        raise ValueError("野村股票對帳缺少唯一 TWD 股票總額")
+    row = stock_totals[0]
+    # Both the formatted amount and raw amount must explicitly reconcile.
+    raw_aum, raw_stocks = assets.get("Aum"), row[3]
+    if any(not isinstance(value, str) or not re.fullmatch(r"\d+(?:\.\d+)?", value)
+           for value in (raw_aum, raw_stocks)):
+        raise ValueError("野村股票對帳金額格式不正確")
+    aum, stocks = Decimal(raw_aum), Decimal(raw_stocks)
+    if not isinstance(row[1], str) or not re.fullmatch(
+        r"TWD\$(?:\d+|\d{1,3}(?:,\d{3})+)(?:\.\d+)?", row[1]
+    ) or Decimal(row[1][4:].replace(",", "")) != stocks:
+        raise ValueError("野村股票對帳金額不一致")
+    if not Decimal("0") < stocks <= aum:
+        raise ValueError("野村股票對帳資產總額無效")
+    if any(not re.fullmatch(r"\d+(?:\.\d{1,2})?", row[3]) for row in stock["Rows"]):
+        raise ValueError("野村股票對帳要求最多兩位小數權重")
+    tolerance = min(Decimal("0.005") * len(stock["Rows"]), Decimal("0.25"))
+    if abs(total - stocks / aum * 100) > tolerance:
+        raise ValueError("野村股票權重與官方股票資產總額不符")
+
+
 def parse_nomura_constituent_payload(
     payload: Any, *, etf_code: str, source_url: str, fetched_at: datetime,
 ) -> ETFConstituentSnapshotCreate:
@@ -242,17 +293,27 @@ def parse_nomura_constituent_payload(
     tables = data.get("Table") if isinstance(data, dict) else None
     if not isinstance(tables, list):
         raise ValueError("野村官方持股缺少股票權重表")
-    stock = next(
-        (item for item in tables if isinstance(item, dict) and item.get("TableTitle") == "股票"),
-        None,
-    )
+    stocks = [item for item in tables if isinstance(item, dict) and item.get("TableTitle") == "股票"]
+    stock = stocks[0] if len(stocks) == 1 else None
     if not isinstance(stock, dict) or not isinstance(stock.get("Rows"), list):
         raise ValueError("野村官方持股缺少股票權重表")
+    if any(not isinstance(row, list) or len(row) != 4
+           or any(not isinstance(value, str) or not value.strip() for value in row)
+           or not re.fullmatch(r"\d+(?:\.\d+)?", row[3])
+           or "合計" in row[0] for row in stock["Rows"]):
+        raise ValueError("野村股票權重列格式不正確")
     table = [["股票代號", "股票名稱", "股數", "權重(%)"], *stock["Rows"]]
+    positions = _positions(
+        table, code_index=0, name_index=1, weight_index=3, issuer="野村",
+        minimum_stock_weight_pct=Decimal("85"),
+    )
+    total = sum(item["weight_pct"] for item in positions)
+    if total < MINIMUM_STOCK_WEIGHT_PCT:
+        _nomura_reconcile_stock_assets(data, stock, total)
     return _snapshot(
         normalized, "野村", "nomura_official_fund_assets", source_url,
         _parse_date(str(stock.get("NavDate") or ""), "野村"),
-        _positions(table, code_index=0, name_index=1, weight_index=3, issuer="野村"),
+        positions,
         fetched_at,
     )
 
@@ -318,19 +379,26 @@ def fetch_fubon_constituent_snapshot(etf_code: str, *, timeout_seconds: float = 
 
 
 def fetch_nomura_constituent_snapshot(etf_code: str, *, timeout_seconds: float = 30,
-                                      fetched_at: datetime | None = None):
+                                      fetched_at: datetime | None = None,
+                                      snapshot_on: date | None = None):
     code = _normalize_code(etf_code)
+    fetched_at = fetched_at or datetime.now(timezone.utc)
+    if snapshot_on is not None and snapshot_on > fetched_at.date():
+        raise ValueError("野村歷史持股不可要求未來日期")
     response = httpx.post(
-        NOMURA_API_URL, json={"FundID": code, "SearchDate": None},
+        NOMURA_API_URL, json={"FundID": code, "SearchDate": snapshot_on.isoformat() if snapshot_on else None},
         timeout=timeout_seconds, follow_redirects=True,
         verify=create_ssl_context(allow_legacy_x509=True),
         headers={"Accept": "application/json", "User-Agent": USER_AGENT},
     )
     response.raise_for_status()
-    return parse_nomura_constituent_payload(
+    result = parse_nomura_constituent_payload(
         response.json(), etf_code=code, source_url=NOMURA_SOURCE_URL,
-        fetched_at=fetched_at or datetime.now(timezone.utc),
+        fetched_at=fetched_at,
     )
+    if snapshot_on is not None and result.as_of_date != snapshot_on:
+        raise ValueError("野村官方回傳日期與要求的歷史日期不符")
+    return result
 
 
 DIRECT_CONSTITUENT_FETCHERS: dict[str, Callable[..., ETFConstituentSnapshotCreate]] = {
