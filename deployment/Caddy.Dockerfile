@@ -7,7 +7,7 @@ RUN apk add --no-cache git \
     && cd /src/caddy \
     && go get golang.org/x/crypto@v0.55.0 golang.org/x/net@v0.57.0 \
         golang.org/x/text@v0.41.0 \
-        google.golang.org/grpc@v1.83.1 \
+        google.golang.org/grpc@v1.83.2 \
     && CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" \
         -o /out/caddy ./cmd/caddy
 
