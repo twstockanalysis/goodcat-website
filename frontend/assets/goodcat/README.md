@@ -27,6 +27,8 @@ terms and this repository's license. Keep this provenance note with the files.
 | `goodcat-working-hero.png` | `WORKING` | Losslessly cropped planner hero on the shared hero canvas |
 | `goodcat-researching-hero.png` | `WORKING` | Borderless gray laptop-and-books illustration shown while the light-theme planner checks data |
 | `goodcat-researching-white-hero.png` | `WORKING` | Matching borderless white researching illustration used in the dark theme |
+| `goodcat-researching-tired-hero.png` | `WORKING` | Borderless tired gray laptop-and-paperwork illustration used as the second light-theme calculation frame |
+| `goodcat-researching-tired-white-hero.png` | `WORKING` | Matching borderless tired white illustration used as the second dark-theme calculation frame |
 | `goodcat-ready-hero.png` | `READY` | Borderless gray ready-state illustration used in the light theme |
 | `goodcat-ready-white-hero.png` | `READY` | Matching borderless white ready-state illustration used in the dark theme |
 | `goodcat-reward-hero.png` | `REWARD` | Completed-work planner hero, happily waiting for a reward without showing food |
@@ -58,6 +60,12 @@ The five dividend-planner state pairs were generated from their approved
 V5-1A references on 2026-09-01. Each pair preserves the same state, expression
 and props, removes the outer sticker border, and uses a gray cat in the light
 theme and a white cat in the dark theme.
+
+The second calculation-state pair was selected by the product owner and edited
+with OpenAI's built-in image generation on 2026-09-09. The light-theme gray cat
+and dark-theme white cat preserve the same tired expression and desk scene,
+remove the outer sticker border, and alternate with the original researching
+pair while a calculation is pending.
 
 All production files are PNG images with real alpha transparency. Character
 images supplement visible Traditional Chinese state text; they never replace

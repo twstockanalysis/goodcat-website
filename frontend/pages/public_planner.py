@@ -1,5 +1,9 @@
 """V3-1 公開且不儲存資料的現金流配置試算頁。"""
 
+from concurrent.futures import (
+    ThreadPoolExecutor,
+    TimeoutError as FutureTimeoutError,
+)
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
@@ -75,6 +79,19 @@ PLANNER_GOODCAT_HERO_FILENAMES = {
         "dark": "goodcat-warning-white-hero.png",
     },
 }
+PLANNER_WORKING_GOODCAT_FRAME_INTERVAL_SECONDS = 1.0
+PLANNER_WORKING_GOODCAT_FRAMES = (
+    {
+        "message": "咪正在努力核對中",
+        "light": "goodcat-researching-hero.png",
+        "dark": "goodcat-researching-white-hero.png",
+    },
+    {
+        "message": "資料好多，喵覺得累",
+        "light": "goodcat-researching-tired-hero.png",
+        "dark": "goodcat-researching-tired-white-hero.png",
+    },
+)
 
 
 def get_planner_goodcat_hero_filename(
@@ -85,6 +102,19 @@ def get_planner_goodcat_hero_filename(
 
     theme_key = "dark" if theme_type == "dark" else "light"
     return PLANNER_GOODCAT_HERO_FILENAMES[state][theme_key]
+
+
+def get_planner_working_goodcat_frame(
+    frame_index: int,
+    theme_type: str,
+) -> tuple[str, str]:
+    """依輪替位置與主題取得計算中圖片及訊息。"""
+
+    frame = PLANNER_WORKING_GOODCAT_FRAMES[
+        frame_index % len(PLANNER_WORKING_GOODCAT_FRAMES)
+    ]
+    theme_key = "dark" if theme_type == "dark" else "light"
+    return frame[theme_key], frame["message"]
 
 
 def allocation_goodcat_feedback(
@@ -168,14 +198,16 @@ def render_planner_goodcat(
     slot: Any,
     state: GoodCatState,
     message: str,
+    *,
+    asset_filename: str | None = None,
 ) -> None:
     """在固定位置替換規劃流程的角色狀態。"""
 
     presentation = get_goodcat_presentation(state)
     hero_asset_path = presentation.asset_path.with_name(
-        get_planner_goodcat_hero_filename(
-            state,
-            st.context.theme.type,
+        asset_filename
+        or get_planner_goodcat_hero_filename(
+            state, st.context.theme.type
         )
     )
 
@@ -197,6 +229,40 @@ def render_planner_goodcat(
             with copy_column:
                 st.caption(presentation.label)
                 st.markdown(f"**{message.strip()}**")
+
+
+def fetch_portfolio_projections_with_working_animation(
+    api_base_url: str,
+    payload: dict[str, Any],
+    goodcat_slot: Any,
+) -> dict[str, Any]:
+    """等待試算時每秒輪替符合目前主題的 GoodCat 畫面。"""
+
+    theme_type = st.context.theme.type
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        future = executor.submit(
+            fetch_portfolio_projections,
+            api_base_url,
+            payload,
+        )
+        frame_index = 0
+        while True:
+            asset_filename, message = get_planner_working_goodcat_frame(
+                frame_index,
+                theme_type,
+            )
+            render_planner_goodcat(
+                goodcat_slot,
+                GoodCatState.WORKING,
+                message,
+                asset_filename=asset_filename,
+            )
+            try:
+                return future.result(
+                    timeout=PLANNER_WORKING_GOODCAT_FRAME_INTERVAL_SECONDS
+                )
+            except FutureTimeoutError:
+                frame_index += 1
 
 
 def apply_month_preset(months: list[int]) -> None:
@@ -1351,15 +1417,10 @@ def render_public_planner() -> None:
             for message in errors:
                 st.warning(message)
         else:
-            render_planner_goodcat(
-                goodcat_slot,
-                GoodCatState.WORKING,
-                "咪正在核對全市場 ETF、整數股數與所需資金。",
-            )
             try:
                 api_base_url = get_api_base_url()
                 with loading_state("正在檢查全市場資料並計算整數股數..."):
-                    result = fetch_portfolio_projections(
+                    result = fetch_portfolio_projections_with_working_animation(
                         api_base_url,
                         {
                             "target_after_tax_cash_twd": target_cash,
@@ -1384,6 +1445,7 @@ def render_public_planner() -> None:
                             ),
                             "supplementary_premium_exempt": premium_exempt,
                         },
+                        goodcat_slot,
                     )
             except (APIClientError, ValueError) as error:
                 render_planner_goodcat(
