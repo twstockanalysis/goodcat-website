@@ -4,7 +4,11 @@ Related Issue: #128. Baseline: `58d4d79`.
 
 The explicit Caddy build dependency moves from gRPC-Go `v1.83.1` to
 `v1.83.2`, following the [upstream patch release](https://github.com/grpc/grpc-go/releases/tag/v1.83.2).
-The Caddy source commit, Go/Alpine images, other module pins, UID/GID,
+Its required `golang.org/x/net` pin also moves from `v0.57.0` to `v0.58.0`.
+The [published module requirements](https://proxy.golang.org/google.golang.org/grpc/@v/v1.83.2.mod)
+confirm this dependency; the first CI build reproduced the incompatible old
+explicit pin. The x/crypto and x/text pins already satisfy the new x/net module.
+The Caddy source commit, Go/Alpine images, remaining module pins, UID/GID,
 configuration and network exposure are unchanged.
 
 The deployment regression checks the new exact pin. This is a source-level
