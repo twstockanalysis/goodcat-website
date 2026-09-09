@@ -2,6 +2,8 @@
 
 import unittest
 from inspect import getsource
+from types import SimpleNamespace
+from unittest.mock import MagicMock, call, patch
 
 from PIL import Image
 from streamlit.testing.v1 import AppTest
@@ -12,7 +14,11 @@ from frontend.pages.public_planner import (
     MARGINAL_TAX_RATE_OPTIONS,
     MONTH_OPTIONS,
     PLANNER_GOODCAT_HERO_FILENAMES,
+    PLANNER_WORKING_GOODCAT_FRAME_INTERVAL_SECONDS,
+    PLANNER_WORKING_GOODCAT_FRAMES,
     get_planner_goodcat_hero_filename,
+    get_planner_working_goodcat_frame,
+    fetch_portfolio_projections_with_working_animation,
     render_allocation_results,
     render_planner_goodcat,
     render_public_planner,
@@ -115,6 +121,58 @@ render_allocation_results(
 
 
 class TestFrontendPublicPlannerUI(unittest.TestCase):
+    def test_working_animation_alternates_dark_theme_frames_each_second(
+        self,
+    ) -> None:
+        expected_result = {"status": "ok"}
+        future = MagicMock()
+        future.result.side_effect = [TimeoutError(), expected_result]
+        executor = MagicMock()
+        executor.__enter__.return_value.submit.return_value = future
+        goodcat_slot = MagicMock()
+
+        with (
+            patch(
+                "frontend.pages.public_planner.ThreadPoolExecutor",
+                return_value=executor,
+            ),
+            patch(
+                "frontend.pages.public_planner.st.context",
+                SimpleNamespace(theme=SimpleNamespace(type="dark")),
+            ),
+            patch(
+                "frontend.pages.public_planner.render_planner_goodcat"
+            ) as render_goodcat,
+        ):
+            result = fetch_portfolio_projections_with_working_animation(
+                "http://api.test",
+                {"target": 1},
+                goodcat_slot,
+            )
+
+        self.assertEqual(result, expected_result)
+        future.result.assert_has_calls(
+            [call(timeout=1.0), call(timeout=1.0)]
+        )
+        render_goodcat.assert_has_calls(
+            [
+                call(
+                    goodcat_slot,
+                    GoodCatState.WORKING,
+                    "咪正在努力核對中",
+                    asset_filename="goodcat-researching-white-hero.png",
+                ),
+                call(
+                    goodcat_slot,
+                    GoodCatState.WORKING,
+                    "資料好多，喵覺得累",
+                    asset_filename=(
+                        "goodcat-researching-tired-white-hero.png"
+                    ),
+                ),
+            ]
+        )
+
     def test_allocation_result_separates_owner_fit_from_etf_quality(self) -> None:
         app = AppTest.from_string(ALLOCATION_RESULT_SCRIPT, default_timeout=10)
         app.run()
@@ -229,7 +287,10 @@ class TestFrontendPublicPlannerUI(unittest.TestCase):
         self.assertIn("GoodCatState.ATTENTIVE", source)
         self.assertIn("如果都選完了，就「讓咪開始工作」吧！", source)
         self.assertNotIn("主人告訴咪月份、目標與庫存就好", source)
-        self.assertIn("GoodCatState.WORKING", source)
+        working_animation_source = getsource(
+            fetch_portfolio_projections_with_working_animation
+        )
+        self.assertIn("GoodCatState.WORKING", working_animation_source)
         self.assertIn("GoodCatState.CAUTION", source)
         goodcat_source = getsource(render_planner_goodcat)
         self.assertIn("st.columns(\n                [2, 3]", goodcat_source)
@@ -273,6 +334,41 @@ class TestFrontendPublicPlannerUI(unittest.TestCase):
             ),
             "goodcat-result-reward-white-hero.png",
         )
+        self.assertEqual(PLANNER_WORKING_GOODCAT_FRAME_INTERVAL_SECONDS, 1.0)
+        self.assertEqual(
+            [frame["message"] for frame in PLANNER_WORKING_GOODCAT_FRAMES],
+            ["咪正在努力核對中", "資料好多，喵覺得累"],
+        )
+        self.assertEqual(
+            get_planner_working_goodcat_frame(0, "light"),
+            ("goodcat-researching-hero.png", "咪正在努力核對中"),
+        )
+        self.assertEqual(
+            get_planner_working_goodcat_frame(1, "dark"),
+            (
+                "goodcat-researching-tired-white-hero.png",
+                "資料好多，喵覺得累",
+            ),
+        )
+        self.assertEqual(
+            get_planner_working_goodcat_frame(2, "light"),
+            ("goodcat-researching-hero.png", "咪正在努力核對中"),
+        )
+        for frame in PLANNER_WORKING_GOODCAT_FRAMES:
+            self.assertEqual(
+                set(frame),
+                {"message", "light", "dark"},
+            )
+            for theme_key in ("light", "dark"):
+                filename = frame[theme_key]
+                with Image.open(GOODCAT_ASSET_DIRECTORY / filename) as image:
+                    self.assertEqual(image.mode, "RGBA")
+                    self.assertEqual(image.size, (1254, 1254))
+                    self.assertEqual(image.getpixel((0, 0))[3], 0)
+                    self.assertEqual(
+                        image.getchannel("A").getextrema(),
+                        (0, 255),
+                    )
         for theme_mapping in PLANNER_GOODCAT_HERO_FILENAMES.values():
             self.assertEqual(set(theme_mapping), {"light", "dark"})
             for filename in theme_mapping.values():
