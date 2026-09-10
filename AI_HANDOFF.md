@@ -86,6 +86,18 @@ no `AI_HANDOFF.md` edit. Collaborators must verify those states live.
   services or write production data. Reverify hashes before any later use;
   see `docs/ANNUAL_EXPENSE_CONTRACT.md` for reproduction and constraints.
 
+### Local non-distribution candidate
+
+- Related Issue: #133. The ignored candidate in the `goodcat-non-distribution`
+  worktree is `database/v5-3d-non-distribution-20260906.db`, SHA-256
+  `1c52c0edd0d0ad644f07e427c3e10d6a33e222f9b650f50b7c403845b951250e`.
+- Its source is the annual-expense candidate recorded above. No live service
+  was switched. Reverify hashes and the non-distribution contract before using
+  these local-only artifacts; no production operation is authorized.
+- The local audit is `data/processed/non-distribution-audit.json`; root-level
+  `non-distribution-*.log` files are ignored diagnostic outputs. GitHub/Git
+  cannot recover those files; rerun the documented read-only audit if absent.
+
 ## Safety invariants
 
 - Never record tokens, account details, cookies, personal data, production

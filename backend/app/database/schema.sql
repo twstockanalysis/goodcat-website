@@ -40,6 +40,14 @@ CREATE TABLE IF NOT EXISTS etf_annual_expense_evidence (
 );
 
 
+-- A dated decision is not a payment and carries no synthetic amount/tax mix.
+CREATE TABLE IF NOT EXISTS etf_non_distribution_notice (
+    etf_code TEXT NOT NULL REFERENCES etf_master(code),
+    evaluation_date TEXT NOT NULL,
+    evidence_json TEXT NOT NULL,
+    PRIMARY KEY (etf_code, evaluation_date)
+);
+
 CREATE TABLE IF NOT EXISTS import_batch (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
 

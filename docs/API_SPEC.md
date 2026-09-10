@@ -2,6 +2,15 @@
 
 ## Overview
 
+### Independent non-distribution notices
+
+`GET /api/v1/etfs/{code}` additionally returns `non_distribution_evidence`,
+with `status` (`REVIEWED_NOTICES` or `NO_REVIEWED_NOTICE`) and dated `items`.
+The detail-only response preserves period-specific official decisions separately
+from paid dividend history. Empty evidence is not zero; present evidence is not
+a permanent fund status. List/comparison and planner responses are unchanged.
+See [the non-distribution contract](NON_DISTRIBUTION_CONTRACT.md).
+
 ### Annual expense provenance
 
 ETF list and detail responses add nullable `annual_expense`, containing the

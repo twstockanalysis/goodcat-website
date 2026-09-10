@@ -68,6 +68,14 @@ milestones. Initialization does not delete user data.
 
 ## Tables
 
+### `etf_non_distribution_notice`
+
+Additive, append-only evidence keyed by `(etf_code, evaluation_date)`, with an
+ETF-master foreign key and validated `evidence_json`. Stores a reviewed official
+decision for that evaluation, never a synthetic payment or tax-composition row.
+Read paths do not migrate old databases. See
+[the non-distribution contract](NON_DISTRIBUTION_CONTRACT.md).
+
 ### `etf_annual_expense_evidence`
 
 Additive immutable annual expense facts keyed by `(etf_code, reporting_year)`.

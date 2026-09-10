@@ -473,6 +473,8 @@ def render_etf_information(
         with fee_column:
             render_annual_expense(etf)
 
+        render_non_distribution_evidence(etf)
+
         if show_owner_details and (
             etf["fund_size"] is None
             or etf["expense_ratio"] is None
@@ -482,6 +484,22 @@ def render_etf_information(
                 "尚未匯入該項指標。"
             )
 
+
+
+def render_non_distribution_evidence(etf: dict[str, Any]) -> None:
+    evidence = etf.get("non_distribution_evidence")
+    if evidence is None:
+        return  # Older API responses remain usable; absence is not a decision.
+    if evidence["status"] == "NO_REVIEWED_NOTICE":
+        st.caption("尚無已審查的官方不分配公告；不表示已配息或配息為零。")
+        return
+    with st.expander("官方不分配公告（歷史評價結果）", expanded=True):
+        for notice in evidence["items"]:
+            st.write(f"評價日 {notice['evaluation_date']}：官方決定本次不予分配。")
+            st.caption(f"公告日期：{notice['publication_date']}")
+            st.link_button("查看官方不分配公告", notice["source_url"])
+        st.caption("僅代表上述評價結果，不代表永久不配息或未來配息；不是 0 元配息事件，"
+                   "亦非正式 ACTUAL／76W 組成。既有配息歷史與配置門檻不變。")
 
 
 def render_annual_expense(etf: dict[str, Any]) -> None:

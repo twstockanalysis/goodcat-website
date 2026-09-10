@@ -18,6 +18,7 @@ from backend.app.api.dependencies import (
 from backend.app.models.etf import (
     ETFListResponse,
     ETFResponse,
+    ETFDetailResponse,
 )
 from backend.app.models.etf_comparison_api import (
     ETFComparisonResponse,
@@ -45,6 +46,7 @@ from backend.app.services.quality_grade_catalog import (
     build_quality_grade_catalog,
     normalize_quality_grade_codes,
 )
+from backend.app.repositories.non_distribution_repository import read_non_distribution_evidence
 
 
 DatabasePath = Annotated[
@@ -268,7 +270,7 @@ def read_etf_data_profile(
 
 @router.get(
     "/{code}",
-    response_model=ETFResponse,
+    response_model=ETFDetailResponse,
     summary="依代號查詢 ETF",
 )
 def read_etf(
@@ -303,4 +305,7 @@ def read_etf(
             detail=f"找不到 ETF：{normalized_code}",
         )
 
+    etf["non_distribution_evidence"] = read_non_distribution_evidence(
+        normalized_code, database_path, evaluated_on=date.today()
+    ).model_dump(mode="json")
     return etf
