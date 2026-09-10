@@ -30,6 +30,15 @@ CREATE TABLE IF NOT EXISTS etf_master (
 CREATE INDEX IF NOT EXISTS idx_etf_master_name
 ON etf_master (name);
 
+-- Immutable reviewed annual costs; do not collapse into undated master values.
+CREATE TABLE IF NOT EXISTS etf_annual_expense_evidence (
+    etf_code TEXT NOT NULL REFERENCES etf_master(code),
+    reporting_year INTEGER NOT NULL CHECK (reporting_year BETWEEN 2000 AND 9998),
+    publication_date TEXT NOT NULL,
+    evidence_json TEXT NOT NULL,
+    PRIMARY KEY (etf_code, reporting_year)
+);
+
 
 CREATE TABLE IF NOT EXISTS import_batch (
     id INTEGER PRIMARY KEY AUTOINCREMENT,

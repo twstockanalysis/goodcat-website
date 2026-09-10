@@ -71,6 +71,21 @@ no `AI_HANDOFF.md` edit. Collaborators must verify those states live.
   separate from the original Python 3.13 `.venv`; do not overlay its packages.
 - Remove this exception once the standard project runtime is repaired.
 
+### Local annual-expense candidate artifacts
+
+- Related Issue: #130. Databases, source PDF and audit JSON are intentionally
+  ignored and cannot be recovered from GitHub/Git.
+- In the `goodcat-expense-import` worktree, the candidate is
+  `database/v5-3d-expense-20260906.db` (SHA-256
+  `21fef06fdce269a04a1afa205ee7a1f5e734f2ded25d5879e23f29b52ccb320d`).
+- Its source is the sibling `goodcat-v5-nomura` worktree's
+  `database/v5-3d-nomura-20260906.db`. The reviewed PDF is in sibling
+  `goodcat-v5-expense/data/processed/expense-124/0056-prospectus.pdf`.
+- Local baseline/candidate audit JSON and test logs are under this worktree's
+  `data/processed/expense-*`. These artifacts contain no authority to switch
+  services or write production data. Reverify hashes before any later use;
+  see `docs/ANNUAL_EXPENSE_CONTRACT.md` for reproduction and constraints.
+
 ## Safety invariants
 
 - Never record tokens, account details, cookies, personal data, production
