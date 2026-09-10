@@ -155,11 +155,19 @@ POST /api/v1/allocation-plans/long-term-scenarios
 POST /api/v1/allocation-plans/portfolio-projections
 ```
 
-The allocation endpoint returns one to three materially different
+The allocation endpoint returns one to three distinct
 `RECOMMENDED`, `BALANCED` and `FOCUSED` whole-share configurations. Every plan
 includes the required additional capital, selected-month cash and shortfall,
 resulting holdings, assumptions and risks. It returns fewer plans rather than
 fabricating duplicate alternatives.
+
+For #137, each strategy drives its own feasibility-first bounded search, not
+only a final selection from capital-first results. Balanced and diversified
+searches may refine an already complete plan toward their respective cash-flow
+spread or resulting-position concentration objectives. No 1% or other minimum
+improvement filter hides a distinct configuration. Differences may be small;
+the quantities, required capital and modeled cash remain the comparison facts,
+not proof of material benefit. The public request/response shape is unchanged.
 
 The nested integer result identifies methodology
 `BOUNDED_COMPLETE_PORTFOLIO_V5_4`. Cash-target feasibility is searched before

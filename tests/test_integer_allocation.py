@@ -5,14 +5,31 @@ from decimal import Decimal
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from backend.app.database.connection import get_connection
 from backend.app.database.init_db import initialize_database
 from backend.app.models.integer_allocation import IntegerAllocationRequest
 from backend.app.services.integer_allocation import build_integer_allocation
+from backend.app.services.complete_portfolio_solver import solve_cash_target_frontier
 
 
 class TestIntegerAllocation(unittest.TestCase):
+    def test_service_propagates_strategy_to_real_solver(self) -> None:
+        self._insert_ready_etfs(2)
+        for objective in ("MONTHLY_BALANCED", "DIVERSIFIED_PROTECTION"):
+            with self.subTest(objective=objective), patch(
+                "backend.app.services.integer_allocation.solve_cash_target_frontier",
+                wraps=solve_cash_target_frontier,
+            ) as solve:
+                result = build_integer_allocation(
+                    self._request(), self.database_path,
+                    as_of_date=date(2026, 1, 1), plan_objective=objective,
+                )
+                self.assertEqual(solve.call_args.kwargs["objective"], objective)
+                self.assertEqual(result.status, "TARGET_MET")
+                self.assertLessEqual(len(result.additions), 5)
+
     def setUp(self) -> None:
         self.temp_directory = tempfile.TemporaryDirectory()
         self.database_path = Path(self.temp_directory.name) / "integer.db"

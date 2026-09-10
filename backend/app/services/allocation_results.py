@@ -91,7 +91,7 @@ def build_allocation_results(
         strategy_issues.append(
             _issue(
                 "MATERIALLY_DISTINCT_ALTERNATIVES_LIMITED",
-                f"完整前緣目前只產生 {len(plans)} 個實質不同方案；"
+                f"有界搜尋目前只產生 {len(plans)} 個股數組合不同的方案；"
                 "不為湊滿三張卡片製造重複結果。",
             )
         )

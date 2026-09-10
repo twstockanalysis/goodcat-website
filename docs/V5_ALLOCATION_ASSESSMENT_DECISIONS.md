@@ -318,6 +318,14 @@ until V5-6 owner acceptance.
 
 ## 9. Deferred decisions
 
+### Owner clarification for #137
+
+Keep distinct strategy portfolios without the proposed 1% improvement filter.
+Improve the direct capital-efficient, monthly-balanced and diversified search
+instead. Exact duplicate share combinations remain omitted; small improvements
+must not be described as material benefits. This decision does not approve
+planning-grade formulas, new risk labels, capital caps or scenario changes.
+
 The following must not be guessed during implementation:
 
 - exact formulas, weights and grade thresholds;
