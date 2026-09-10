@@ -4,6 +4,7 @@ from datetime import date
 
 from pydantic import BaseModel, Field
 from backend.app.models.annual_expense import AnnualExpenseEvidence
+from backend.app.models.non_distribution import NonDistributionEvidence
 
 
 class ETFResponse(BaseModel):
@@ -44,6 +45,10 @@ class ETFResponse(BaseModel):
         default=None,
         description="總費用率，單位為百分比",
     )
+
+
+class ETFDetailResponse(ETFResponse):
+    non_distribution_evidence: NonDistributionEvidence
 
 
 class ETFListResponse(BaseModel):
