@@ -377,7 +377,7 @@ def build_full_database_audit(
     database = Path(database_path).resolve()
     if not database.is_file():
         raise FileNotFoundError(f"database does not exist: {database}")
-    coverage = build_detail_page_coverage(database)
+    coverage = build_detail_page_coverage(database, evaluated_on=evaluated_on)
     cases = [
         _summarize_case_safely(case_id, request, database, evaluated_on)
         for case_id, request in build_audit_cases(database)

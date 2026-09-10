@@ -471,12 +471,7 @@ def render_etf_information(
             )
 
         with fee_column:
-            st.metric(
-                "費用率",
-                format_expense_ratio(
-                    etf["expense_ratio"]
-                ),
-            )
+            render_annual_expense(etf)
 
         if show_owner_details and (
             etf["fund_size"] is None
@@ -487,6 +482,21 @@ def render_etf_information(
                 "尚未匯入該項指標。"
             )
 
+
+
+def render_annual_expense(etf: dict[str, Any]) -> None:
+    """Keep the historical year adjacent to the percentage and its source."""
+    evidence = etf.get("annual_expense")
+    if evidence:
+        st.metric(f"{evidence['reporting_year']} 年總費用率",
+                  format_expense_ratio(float(evidence["expense_ratio_pct"])))
+        st.caption("歷史年度實際費用，含交易成本；不代表目前契約費率或未來費用。")
+        st.caption(f"文件日期：{evidence['publication_date']}｜第 {evidence['document_page']} 頁")
+        st.link_button("官方費用率來源", evidence["source_url"])
+    else:
+        st.metric("費用率", format_expense_ratio(etf.get("expense_ratio")))
+        if etf.get("expense_ratio") is not None:
+            st.caption("此舊資料未附年度與來源，尚未完成年度費用率驗證。")
 
 
 def build_price_history_chart_rows(

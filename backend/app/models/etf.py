@@ -3,10 +3,15 @@
 from datetime import date
 
 from pydantic import BaseModel, Field
+from backend.app.models.annual_expense import AnnualExpenseEvidence
 
 
 class ETFResponse(BaseModel):
     """ETF 主資料 API 回應模型。"""
+
+    annual_expense: AnnualExpenseEvidence | None = Field(
+        default=None, description="已審查的歷史年度總費用率與文件來源；非目前契約費率"
+    )
 
     code: str = Field(
         description="ETF 證券代號",

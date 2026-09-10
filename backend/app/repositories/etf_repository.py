@@ -1,10 +1,12 @@
 """ETF 主資料 Repository。"""
 
 import sqlite3
+from datetime import date
 from pathlib import Path
 from typing import Any
 
 from backend.app.database.connection import get_connection
+from backend.app.repositories.annual_expense_repository import annual_expense_catalog, enrich_expense
 
 
 ETF_SELECT_COLUMNS = """
@@ -168,8 +170,9 @@ def list_etfs(
             query_parameters,
         ).fetchall()
 
+        expenses = annual_expense_catalog(connection, evaluated_on=date.today())
         return [
-            row_to_dictionary(row)
+            enrich_expense(row_to_dictionary(row), expenses)
             for row in rows
         ]
 
@@ -266,7 +269,7 @@ def get_etf_by_code(
         if row is None:
             return None
 
-        return row_to_dictionary(row)
+        return enrich_expense(row_to_dictionary(row), annual_expense_catalog(connection, evaluated_on=date.today()))
 
     finally:
         connection.close()

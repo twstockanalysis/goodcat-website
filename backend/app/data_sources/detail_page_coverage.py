@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from backend.app.database.connection import get_connection
+from backend.app.repositories.annual_expense_repository import annual_expense_catalog
 
 
 PERFORMANCE_PERIODS = ("1M", "3M", "6M", "1Y")
@@ -72,6 +73,7 @@ def build_detail_page_coverage(
     database_path: str | Path,
     *,
     generated_at: datetime | None = None,
+    evaluated_on: date | None = None,
 ) -> dict[str, Any]:
     """Build a per-ETF ledger for every currently visible detail-page fact."""
 
@@ -84,6 +86,8 @@ def build_detail_page_coverage(
 
     connection = get_connection(target)
     try:
+        annual_expenses = annual_expense_catalog(
+            connection, evaluated_on=evaluated_on or generated_at.date())
         rows = connection.execute(
             """
             SELECT
@@ -236,7 +240,9 @@ def build_detail_page_coverage(
                 reason="NO_VERIFIED_OFFICIAL_AUM_SOURCE",
             ),
             "expense_ratio": _availability(
-                row["expense_ratio"] is not None,
+                code in annual_expenses or row["expense_ratio"] is not None,
+                as_of=(f"{annual_expenses[code].reporting_year}-12-31"
+                       if code in annual_expenses else None),
                 reason="NO_VERIFIED_TOTAL_EXPENSE_RATIO_SOURCE",
             ),
             "price_history": _availability(

@@ -2,6 +2,18 @@
 
 ## Overview
 
+### Annual expense provenance
+
+ETF list and detail responses add nullable `annual_expense`, containing the
+selected completed reporting year, decimal percentage (JSON string), historical
+total-expense basis, issuer/product identity and document provenance. When
+present, the existing numeric `expense_ratio` reflects this same percentage.
+Selection uses publication date no later than today; old databases and legacy
+values remain supported. Consumers must display the year and historical basis,
+not describe this value as a current contractual fee. See
+[the annual expense contract](ANNUAL_EXPENSE_CONTRACT.md) for all fields and
+missing/zero/selection rules. There is no public expense-write endpoint.
+
 Framework:
 
 ```text

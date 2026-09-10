@@ -127,6 +127,8 @@ def format_etf_result_row(
         item["expense_ratio"],
         "%",
     )
+    if item.get("annual_expense"):
+        expense_ratio += f"（{item['annual_expense']['reporting_year']} 年歷史總費用）"
 
     return {
         "code": code,

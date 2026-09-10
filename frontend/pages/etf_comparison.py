@@ -441,6 +441,8 @@ def build_identity_rows(
                         etf["expense_ratio"],
                         suffix="%",
                     )
+                    + (f"（{etf['annual_expense']['reporting_year']} 年歷史總費用）"
+                       if etf.get("annual_expense") else "")
                 ),
             }
         )

@@ -68,6 +68,16 @@ milestones. Initialization does not delete user data.
 
 ## Tables
 
+### `etf_annual_expense_evidence`
+
+Additive immutable annual expense facts keyed by `(etf_code, reporting_year)`.
+`etf_code` references `etf_master`; `publication_date` supports dated selection,
+and `evidence_json` preserves the validated decimal percentage and complete
+source provenance. Initialization creates the table; read paths do not migrate
+old databases. Imports never overwrite the legacy master expense column.
+Conflicts reject the whole batch. See
+[the annual expense contract](ANNUAL_EXPENSE_CONTRACT.md).
+
 ### `etf_master`
 
 Primary key:
