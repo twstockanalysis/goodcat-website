@@ -32,8 +32,27 @@ included first. The solver then:
 6. for complete plans, next minimizes additional capital, avoidable overshoot
    and added-ETF count;
 7. uses ETF code only as the final stable tie-breaker; and
-8. removes plans dominated on shortfall, capital, overshoot, complexity and
-   resulting-position concentration.
+8. removes plans dominated on shortfall, capital, overshoot, selected-month
+   resulting-cash imbalance, complexity and resulting-position concentration.
+
+### Monthly-balance dominance correction (#135)
+
+Cash-target dominance includes the same balance measure used by the existing
+stable/balanced selector: maximum minus minimum resulting cash over selected
+months, including existing holdings. It is not the spread of added cash alone
+or of overshoot; unequal targets do not redefine the measure. Unselected months
+do not participate, and one selected month has zero imbalance.
+
+A cheaper plan cannot dominate a more balanced plan merely because both have
+the same total overshoot. For example, modeled cash of 10/20 at capital 10 and
+15/15 at capital 20 are distinct trade-offs for targets 10/10. The primary
+capital-efficient ordering remains unchanged; the balanced view can select the
+second plan. Strict dominance still requires no worse values on every dimension
+and improvement on at least one. This adds no grade or new public API field.
+
+The correction does not make bounded search exhaustive. Beam and frontier size
+limits can still discard alternatives; `search_truncated` remains evidence of
+that limitation, not proof that no better balanced portfolio exists.
 
 ## Three post-feasibility plan views
 
@@ -116,3 +135,36 @@ order resolves exact ties.
 The pure solver is covered independently from repositories so deterministic
 cash-target, existing-holding, dominance, maximum-five, missing-input and
 budget-boundary behavior can be replayed without a mutable database.
+
+## Balance correction validation (#135)
+
+The three added regressions fail on the prior solver and pass with the balance
+dimension: equal targets, existing-holding cash, and unequal targets with an
+unselected-month payment. They exercise the real monthly-balanced selector;
+the first also verifies candidate-order invariance and unchanged capital-first
+selection. Existing strict-dominance and single-month cases remain covered.
+
+Focused solver suite: 12 passed. Full regression: 1,198 passed in 261.432 seconds
+on 2026-09-10. Compileall and `git diff --check` passed. No public request/response
+schema, source selector, tax calculation, data gate or live service changed.
+
+The immutable candidate recorded for #133 was replayed at 2026-09-06. Its full
+263-by-18 field ledger, all eight primary-case summaries and 263-candidate
+eligibility records per case, reference evidence and acceptance flags match the
+pre-change audit exactly. Six cases remain TARGET_MET (including formal zero);
+two intentional negative cases remain UNAVAILABLE. The broad all-holding-cases
+eligibility flag remains false by design; this is not an all-flags-pass claim.
+Integrity is `ok`, foreign-key violations zero, and SHA-256 remains
+`1c52c0edd0d0ad644f07e427c3e10d6a33e222f9b650f50b7c403845b951250e`.
+
+A separate eight-case strategy replay confirms the existing card counts and
+maximum-five constraint. This is not a before/after comparison of every alternate
+plan. For the zero-holding quarterly case, the capital-efficient plan uses
+4,699.48 TWD with a selected-month spread of 66.12; the balanced plan uses
+5,437.20 TWD with a spread of 43.04. For the 00929 holding case, the balanced
+plan costs 55.14 TWD more and reduces spread by only 0.73 TWD: distinct share
+combinations alone do not establish a material user benefit. Materiality
+tolerances, public grading and budget API integration remain separate work.
+
+Reproduce using `deployment.v5_full_database_audit` with the recorded immutable
+candidate and fixed date; do not switch running services or import data.

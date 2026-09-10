@@ -98,6 +98,15 @@ no `AI_HANDOFF.md` edit. Collaborators must verify those states live.
   `non-distribution-*.log` files are ignored diagnostic outputs. GitHub/Git
   cannot recover those files; rerun the documented read-only audit if absent.
 
+### Local V5-4 balance replay artifacts
+
+- Related Issue: #135. The `goodcat-v5-balance` worktree retains ignored
+  `data/processed/balance-audit.json`, `balance-alternatives.log`,
+  `balance-audit.log` and `balance-full.log`; GitHub/Git cannot recover them.
+- The replay reads the #133 immutable candidate described above at 2026-09-06.
+  No new database is created. Reverify the candidate hash before reuse; rerun
+  `deployment.v5_full_database_audit` if the audit artifact is absent.
+
 ## Safety invariants
 
 - Never record tokens, account details, cookies, personal data, production

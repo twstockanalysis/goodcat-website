@@ -8,6 +8,7 @@ from backend.app.services.complete_portfolio_solver import (
     solve_budget_frontier,
     solve_cash_target_frontier,
 )
+from backend.app.services.integer_allocation import _select_plan
 
 
 def candidate(
@@ -26,6 +27,56 @@ def candidate(
 
 
 class TestCompletePortfolioSolver(unittest.TestCase):
+    def test_balance_tradeoff_survives_cheaper_uneven_plan(self) -> None:
+        inputs = [
+            candidate("CHEAP", "10", {1: "10", 2: "20"}),
+            candidate("BALANCED", "20", {1: "15", 2: "15"}),
+        ]
+        arguments = dict(
+            selected_months=[1, 2],
+            target_cash_by_month={1: Decimal("10"), 2: Decimal("10")},
+            max_added_etfs=1,
+        )
+        search = solve_cash_target_frontier(inputs, **arguments)
+        self.assertEqual(search.frontier[0].shares, (("CHEAP", 1),))
+        selected = _select_plan(
+            search.frontier, "MONTHLY_BALANCED", {1: Decimal(0), 2: Decimal(0)}
+        )
+        self.assertEqual(selected.shares, (("BALANCED", 1),))
+        self.assertEqual(
+            search, solve_cash_target_frontier(list(reversed(inputs)), **arguments)
+        )
+
+    def test_balance_uses_existing_cash_not_added_cash_alone(self) -> None:
+        current = {1: Decimal("10"), 2: Decimal("0")}
+        search = solve_cash_target_frontier(
+            [
+                candidate("CHEAP", "10", {2: "20"}),
+                candidate("BALANCED", "20", {1: "5", 2: "15"}),
+            ],
+            selected_months=[1, 2],
+            target_cash_by_month={1: Decimal("10"), 2: Decimal("10")},
+            current_cash_by_month=current,
+            max_added_etfs=1,
+        )
+        selected = _select_plan(search.frontier, "MONTHLY_BALANCED", current)
+        self.assertEqual(selected.shares, (("BALANCED", 1),))
+
+    def test_balance_is_resulting_cash_not_overshoot_with_unequal_targets(self) -> None:
+        search = solve_cash_target_frontier(
+            [
+                candidate("CHEAP", "10", {1: "10", 2: "20", 3: "999"}),
+                candidate("BALANCED", "20", {1: "20", 2: "20"}),
+            ],
+            selected_months=[1, 2],
+            target_cash_by_month={1: Decimal("10"), 2: Decimal("20")},
+            max_added_etfs=1,
+        )
+        selected = _select_plan(
+            search.frontier, "MONTHLY_BALANCED", {1: Decimal(0), 2: Decimal(0)}
+        )
+        self.assertEqual(selected.shares, (("BALANCED", 1),))
+
     def test_solves_complementary_whole_share_portfolio_before_evidence_scoring(
         self,
     ) -> None:

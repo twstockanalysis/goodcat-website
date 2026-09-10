@@ -27,6 +27,7 @@ class CompletePortfolioPlan:
     shares: tuple[tuple[str, int], ...]
     additional_capital: Decimal
     monthly_added_cash: tuple[tuple[int, Decimal], ...]
+    monthly_resulting_cash: tuple[tuple[int, Decimal], ...]
     monthly_shortfall: tuple[tuple[int, Decimal], ...]
     monthly_overshoot: tuple[tuple[int, Decimal], ...]
     max_position_pct: Decimal
@@ -46,6 +47,11 @@ class CompletePortfolioPlan:
     @property
     def complete(self) -> bool:
         return self.total_shortfall == 0
+
+    @property
+    def month_imbalance(self) -> Decimal:
+        values = [value for _, value in self.monthly_resulting_cash]
+        return max(values, default=_ZERO) - min(values, default=_ZERO)
 
 
 @dataclass(frozen=True, slots=True)
@@ -156,6 +162,10 @@ def _plan(
         shares=state.shares,
         additional_capital=state.capital,
         monthly_added_cash=added,
+        monthly_resulting_cash=tuple(
+            (month, current_cash.get(month, _ZERO) + amount)
+            for month, amount in added
+        ),
         monthly_shortfall=tuple(shortfall),
         monthly_overshoot=tuple(overshoot),
         max_position_pct=max_position_pct,
@@ -181,6 +191,7 @@ def _dominates(
         left.total_shortfall,
         left.additional_capital,
         left.total_overshoot,
+        left.month_imbalance,
         left.max_position_pct,
         Decimal(left.added_etf_count),
     )
@@ -188,6 +199,7 @@ def _dominates(
         right.total_shortfall,
         right.additional_capital,
         right.total_overshoot,
+        right.month_imbalance,
         right.max_position_pct,
         Decimal(right.added_etf_count),
     )
