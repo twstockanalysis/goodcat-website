@@ -304,6 +304,17 @@ No global maximum, personal suitability, new planning grade or public launch
 claim follows from a result. Frontend and multi-card budget integration remain
 separate work.
 
+For #143, budget search keeps its original batch result as an incumbent, then
+uses remaining state capacity for cash-line-intersection exchanges between
+proposed additions. It reduces no original holding. Exact and rounded budget
+checks and the existing objective still apply, with no separate state allowance
+or cash-target solver call. `search_explored_states` includes original batch
+states plus attempted exchange portfolios (including duplicates/rejections);
+it is not a count of globally unique portfolios. Same-request refinement cannot
+worsen the original selected objective but can alter cost and concentration.
+It remains bounded best effort and may stop at a local improvement or the state
+ceiling; see the algorithm contract for limitations and fixed-candidate evidence.
+
 Existing public middleware still enforces request sizes and rate limits;
 unknown holdings return HTTP 404 and unexpected failures use sanitized HTTP 500.
 No request persistence, owner credential requirement or broker connection is

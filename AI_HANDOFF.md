@@ -143,6 +143,16 @@ no `AI_HANDOFF.md` edit. Collaborators must verify those states live.
   `budget-full.log` and `budget-full-final.log` predate the final response
   serialization guard; neither is the final regression evidence.
 
+### Local budget-refinement replay artifacts
+
+- Related Issue: #143. Ignored `refinement-replay.log` and `refinement-full.log`
+  in `goodcat-v5-budget-refine` cannot be recovered from GitHub/Git.
+- The replay reads the #133 immutable candidate at 2026-09-06 and compares
+  with sibling `goodcat-v5-budget/budget-replay.log`; reverify the candidate
+  hash before reuse. Reproduce with the algorithm contract's eight cases and
+  test budgets. Validation uses `goodcat-v5-cathay/.venv/Scripts/python.exe`.
+- These artifacts authorize no data import, live service switch or deployment.
+
 ## Safety invariants
 
 - Never record tokens, account details, cookies, personal data, production
