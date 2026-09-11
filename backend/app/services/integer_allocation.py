@@ -26,6 +26,7 @@ from backend.app.services.market_eligibility_index import (
 from backend.app.services.complete_portfolio_solver import (
     CompletePortfolioCandidate,
     CompletePortfolioPlan,
+    cash_target_plan_order,
     solve_cash_target_frontier,
 )
 from backend.app.services.public_planner import analyze_public_planner_baseline
@@ -48,36 +49,8 @@ def _select_plan(
     objective: str,
     current_cash: dict[int, Decimal],
 ) -> CompletePortfolioPlan:
-    if objective == "MONTHLY_BALANCED":
-        def balanced_key(plan: CompletePortfolioPlan) -> tuple[object, ...]:
-            modeled = [
-                current_cash[month] + amount
-                for month, amount in plan.monthly_added_cash
-            ]
-            spread = max(modeled) - min(modeled)
-            return (
-                spread,
-                plan.total_overshoot,
-                plan.additional_capital,
-                plan.added_etf_count,
-                plan.shares,
-            )
-
-        return min(plans, key=balanced_key)
-    if objective == "DIVERSIFIED_PROTECTION":
-        return min(
-            plans,
-            key=lambda plan: (
-                plan.max_position_pct,
-                plan.additional_capital,
-                plan.total_overshoot,
-                plan.added_etf_count,
-                plan.shares,
-            ),
-        )
-    if objective != "CAPITAL_EFFICIENT":
-        raise ValueError("unknown V5-4 plan objective")
-    return plans[0]
+    del current_cash  # Resulting cash is retained in each complete solver plan.
+    return min(plans, key=lambda plan: cash_target_plan_order(plan, objective))
 
 
 def _resulting_holdings(
@@ -289,6 +262,7 @@ def build_integer_allocation(
             if holding.current_value is not None
         },
         max_added_etfs=5,
+        objective=plan_objective,
     )
     selected_plan = _select_plan(search.frontier, plan_objective, current_cash)
     selected_shares = dict(selected_plan.shares)

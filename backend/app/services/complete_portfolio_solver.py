@@ -183,29 +183,77 @@ def _plan_order(plan: CompletePortfolioPlan) -> tuple[object, ...]:
     )
 
 
-def _dominates(
-    left: CompletePortfolioPlan,
-    right: CompletePortfolioPlan,
+def _dominance_values(plan: CompletePortfolioPlan) -> tuple[Decimal, ...]:
+    return (
+        plan.total_shortfall, plan.additional_capital, plan.total_overshoot,
+        plan.month_imbalance, plan.max_position_pct, Decimal(plan.added_etf_count),
+    )
+
+
+def _values_dominate(
+    left_values: tuple[Decimal, ...], right_values: tuple[Decimal, ...],
 ) -> bool:
-    left_values = (
-        left.total_shortfall,
-        left.additional_capital,
-        left.total_overshoot,
-        left.month_imbalance,
-        left.max_position_pct,
-        Decimal(left.added_etf_count),
-    )
-    right_values = (
-        right.total_shortfall,
-        right.additional_capital,
-        right.total_overshoot,
-        right.month_imbalance,
-        right.max_position_pct,
-        Decimal(right.added_etf_count),
-    )
     return all(a <= b for a, b in zip(left_values, right_values, strict=True)) and any(
         a < b for a, b in zip(left_values, right_values, strict=True)
     )
+
+
+def _dominates(left: CompletePortfolioPlan, right: CompletePortfolioPlan) -> bool:
+    return _values_dominate(_dominance_values(left), _dominance_values(right))
+
+
+def cash_target_plan_order(
+    plan: CompletePortfolioPlan, objective: str,
+) -> tuple[object, ...]:
+    """Use the same feasibility-first order for search and final selection."""
+    if objective == "CAPITAL_EFFICIENT":
+        return _plan_order(plan)
+    if objective == "MONTHLY_BALANCED":
+        return (
+            plan.total_shortfall, plan.month_imbalance, plan.total_overshoot,
+            plan.additional_capital, plan.added_etf_count, plan.shares,
+        )
+    if objective == "DIVERSIFIED_PROTECTION":
+        return (
+            plan.total_shortfall, plan.max_position_pct, plan.additional_capital,
+            plan.total_overshoot, plan.added_etf_count, plan.shares,
+        )
+    raise ValueError("unknown V5-4 plan objective")
+
+
+def _refinement_quantities(
+    candidate: CompletePortfolioCandidate,
+    plan: CompletePortfolioPlan,
+    current_value: Mapping[str, Decimal],
+    prices: Mapping[str, Decimal],
+    objective: str,
+) -> set[int]:
+    """Integer neighbours of cash-line or position-value intersections."""
+    crossings: list[Decimal] = []
+    if objective == "MONTHLY_BALANCED":
+        cash = plan.monthly_resulting_cash
+        for i, (month, amount) in enumerate(cash):
+            for other_month, other_amount in cash[i + 1:]:
+                slope = (candidate.monthly_cash_per_share[month - 1]
+                         - candidate.monthly_cash_per_share[other_month - 1])
+                if slope:
+                    crossings.append((other_amount - amount) / slope)
+    elif objective == "DIVERSIFIED_PROTECTION":
+        values = dict(current_value)
+        for code, quantity in plan.shares:
+            values[code] = values.get(code, _ZERO) + prices[code] * quantity
+        own = values.get(candidate.etf_code, _ZERO)
+        other = max(
+            (value for code, value in values.items() if code != candidate.etf_code),
+            default=_ZERO,
+        )
+        crossings.append((other - own) / candidate.reference_price)
+    quantities: set[int] = set()
+    for crossing in crossings:
+        if crossing > 0:
+            ceiling = _ceil_quantity(crossing)
+            quantities.update((max(1, ceiling - 1), ceiling))
+    return quantities
 
 
 def _non_dominated(
@@ -213,14 +261,20 @@ def _non_dominated(
 ) -> tuple[CompletePortfolioPlan, ...]:
     unique = {plan.shares: plan for plan in plans}
     ordered = sorted(unique.values(), key=_plan_order)
-    return tuple(
-        plan
-        for plan in ordered
-        if not any(
-            other.shares != plan.shares and _dominates(other, plan)
-            for other in ordered
-        )
-    )
+    # Cache each vector once and compare only surviving skyline members.
+    # Strict Pareto dominance is transitive, so discarded members cannot
+    # change the final set. Later ties may dominate an earlier member.
+    skyline: list[tuple[CompletePortfolioPlan, tuple[Decimal, ...]]] = []
+    for plan in ordered:
+        values = _dominance_values(plan)
+        if any(_values_dominate(other_values, values) for _, other_values in skyline):
+            continue
+        skyline = [
+            (other, other_values) for other, other_values in skyline
+            if not _values_dominate(values, other_values)
+        ]
+        skyline.append((plan, values))
+    return tuple(plan for plan, _ in skyline)
 
 
 def solve_cash_target_frontier(
@@ -233,6 +287,7 @@ def solve_cash_target_frontier(
     max_added_etfs: int = 5,
     beam_width: int = 64,
     max_expansions: int = 20_000,
+    objective: str = "CAPITAL_EFFICIENT",
 ) -> CompletePortfolioSearch:
     """Search whole-share combinations and return a deterministic Pareto set.
 
@@ -267,6 +322,10 @@ def solve_cash_target_frontier(
     initial_plan = _plan(
         initial, months, current, target_cash_by_month, current_value, prices
     )
+    def order(plan: CompletePortfolioPlan) -> tuple[object, ...]:
+        return cash_target_plan_order(plan, objective)
+
+    order(initial_plan)  # Validate even when no additions are needed.
     if initial_plan.complete:
         return CompletePortfolioSearch((initial_plan,), 1, False)
 
@@ -292,6 +351,10 @@ def solve_cash_target_frontier(
                 if is_new and len(state_map) >= max_added_etfs:
                     continue
                 quantities = {1}
+                if objective != "CAPITAL_EFFICIENT":
+                    quantities.update(_refinement_quantities(
+                        candidate, state_plan, current_value, prices, objective
+                    ))
                 for month in months:
                     per_share = candidate.monthly_cash_per_share[month - 1]
                     if remaining[month] <= 0 or per_share <= 0:
@@ -336,6 +399,10 @@ def solve_cash_target_frontier(
                     )
                     if candidate_plan.complete:
                         feasible.append(candidate_plan)
+                        if objective != "CAPITAL_EFFICIENT" and (
+                            not state_plan.complete or order(candidate_plan) < order(state_plan)
+                        ):
+                            next_states.append(new_state)
                     else:
                         next_states.append(new_state)
                         best_partial.append(candidate_plan)
@@ -344,17 +411,17 @@ def solve_cash_target_frontier(
             if stop_search:
                 break
         if len(feasible) > beam_width * 4:
-            feasible = list(_non_dominated(feasible))[:beam_width]
+            feasible = sorted(_non_dominated(feasible), key=order)[:beam_width]
             truncated = True
         if len(best_partial) > beam_width * 4:
-            best_partial.sort(key=_plan_order)
+            best_partial.sort(key=order)
             best_partial = best_partial[: beam_width * 2]
             truncated = True
         if stop_search or not next_states:
             active = next_states
             break
         next_states.sort(
-            key=lambda state: _plan_order(
+            key=lambda state: order(
                 _plan(
                     state,
                     months,

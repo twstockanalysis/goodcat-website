@@ -107,6 +107,19 @@ no `AI_HANDOFF.md` edit. Collaborators must verify those states live.
   No new database is created. Reverify the candidate hash before reuse; rerun
   `deployment.v5_full_database_audit` if the audit artifact is absent.
 
+### Local objective-search validation artifacts
+
+- Related Issue: #137. The `goodcat-v5-objectives` worktree retains ignored
+  `data/processed/objectives-final-audit.json`, `objectives-final-audit.log`
+  (including `STRATEGY` lines for each of the eight ordered cases), and
+  `objectives-full-final.log`. GitHub/Git cannot recover these local artifacts.
+- The replay reads the #133 immutable candidate at 2026-09-06. Reverify its
+  recorded hash before reuse. Reproduce via `deployment.v5_full_database_audit`;
+  obtain complete strategy results with `build_allocation_results` for its
+  `build_audit_cases`. No production or service change is authorized.
+- Non-final `objectives-full.log` and `objectives-audit.log` are interrupted
+  exploratory runs before the Pareto-performance correction, not final evidence.
+
 ## Safety invariants
 
 - Never record tokens, account details, cookies, personal data, production

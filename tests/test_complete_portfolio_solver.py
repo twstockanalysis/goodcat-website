@@ -1,10 +1,15 @@
 """V5-4 complete-portfolio solver and Pareto-frontier tests."""
 
 from decimal import Decimal
+from random import Random
 import unittest
 
 from backend.app.services.complete_portfolio_solver import (
     CompletePortfolioCandidate,
+    CompletePortfolioPlan,
+    _dominates,
+    _non_dominated,
+    cash_target_plan_order,
     solve_budget_frontier,
     solve_cash_target_frontier,
 )
@@ -27,6 +32,88 @@ def candidate(
 
 
 class TestCompletePortfolioSolver(unittest.TestCase):
+    def test_incremental_frontier_matches_all_pairs_reference(self) -> None:
+        rng = Random(137)
+        # Synthetic comparison vectors exercise ties, partials and trade-offs.
+        plans = [CompletePortfolioPlan(
+            shares=((str(i), 1),), additional_capital=Decimal(rng.randrange(8)),
+            monthly_added_cash=((1, Decimal(0)),),
+            monthly_resulting_cash=((1, Decimal(0)), (2, Decimal(rng.randrange(8)))),
+            monthly_shortfall=((1, Decimal(rng.randrange(3))),),
+            monthly_overshoot=((1, Decimal(rng.randrange(8))),),
+            max_position_pct=Decimal(rng.randrange(8)),
+        ) for i in range(100)]
+        ordered = sorted(plans, key=lambda p: cash_target_plan_order(p, "CAPITAL_EFFICIENT"))
+        expected = tuple(p for p in ordered if not any(
+            other.shares != p.shares and _dominates(other, p) for other in ordered
+        ))
+        self.assertEqual(_non_dominated(plans + [plans[0]]), expected)
+        self.assertEqual(_non_dominated(list(reversed(plans))), expected)
+
+    def test_balanced_search_refines_beyond_first_complete_plan(self) -> None:
+        arguments = dict(
+            selected_months=[1, 2],
+            target_cash_by_month={1: Decimal(10), 2: Decimal(10)},
+            current_cash_by_month={1: Decimal(100)},
+            max_added_etfs=1,
+        )
+        inputs = [candidate("FEB", "1", {2: "1"})]
+        capital = solve_cash_target_frontier(inputs, **arguments)
+        balanced = solve_cash_target_frontier(
+            inputs, objective="MONTHLY_BALANCED", **arguments
+        )
+        selected = _select_plan(balanced.frontier, "MONTHLY_BALANCED", {})
+        self.assertEqual(capital.frontier[0].shares, (("FEB", 10),))
+        self.assertEqual(selected.shares, (("FEB", 100),))
+        self.assertEqual(selected.month_imbalance, 0)
+        self.assertTrue(selected.complete)
+
+    def test_diversified_search_refines_existing_position_concentration(self) -> None:
+        inputs = [candidate("A", "10", {1: "10"}),
+                  candidate("B", "10", {1: "10"})]
+        arguments = dict(
+            selected_months=[1], target_cash_by_month={1: Decimal(10)},
+            current_value_by_code={"HELD": Decimal(80)},
+            max_added_etfs=2, beam_width=4, max_expansions=300,
+        )
+        search = solve_cash_target_frontier(
+            inputs, objective="DIVERSIFIED_PROTECTION", **arguments
+        )
+        selected = _select_plan(search.frontier, "DIVERSIFIED_PROTECTION", {})
+        self.assertEqual(selected.shares, (("A", 8), ("B", 8)))
+        self.assertEqual(selected.max_position_pct, Decimal(100) / 3)
+        self.assertEqual(search, solve_cash_target_frontier(
+            list(reversed(inputs)), objective="DIVERSIFIED_PROTECTION", **arguments
+        ))
+        self.assertLessEqual(search.explored_states, 300)
+
+    def test_each_objective_preserves_bounds_and_explicit_partial_state(self) -> None:
+        inputs = [candidate("JAN", "1", {1: "1"})]
+        for objective in ("CAPITAL_EFFICIENT", "MONTHLY_BALANCED", "DIVERSIFIED_PROTECTION"):
+            with self.subTest(objective=objective):
+                search = solve_cash_target_frontier(
+                    inputs, selected_months=[1, 2],
+                    target_cash_by_month={1: Decimal(10), 2: Decimal(10)},
+                    objective=objective, beam_width=1, max_expansions=5,
+                )
+                self.assertTrue(all(not p.complete for p in search.frontier))
+                self.assertLessEqual(search.explored_states, 5)
+                self.assertTrue(search.truncated)
+                self.assertTrue(all(p.added_etf_count <= 5 for p in search.frontier))
+                zero = solve_cash_target_frontier(
+                    inputs, selected_months=[1], target_cash_by_month={1: Decimal(0)},
+                    objective=objective,
+                )
+                self.assertEqual(zero.frontier[0].shares, ())
+                self.assertEqual(zero.explored_states, 1)
+
+    def test_unknown_objective_rejected_even_for_zero_target(self) -> None:
+        with self.assertRaisesRegex(ValueError, "objective"):
+            solve_cash_target_frontier(
+                [], selected_months=[1], target_cash_by_month={1: Decimal(0)},
+                objective="UNKNOWN",
+            )
+
     def test_balance_tradeoff_survives_cheaper_uneven_plan(self) -> None:
         inputs = [
             candidate("CHEAP", "10", {1: "10", 2: "20"}),

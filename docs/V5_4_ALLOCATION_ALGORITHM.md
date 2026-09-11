@@ -66,9 +66,84 @@ same request. They do not pre-rank ETFs by historical quality:
 - `分散防護方案` first minimizes the largest resulting position after every
   submitted holding and every added share are combined.
 
-Only materially different share combinations are returned. A second or third
+Only distinct share combinations are returned. A second or third
 card is omitted when its selected combination duplicates an earlier card; the
 service records that limitation instead of manufacturing a cosmetic variant.
+
+### Objective-aware search (#137)
+
+The owner rejected a proposed 1% alternative-hiding rule and authorized direct
+search for each existing strategy. No minimum improvement threshold applies;
+different portfolios remain eligible for display even if their measured gain
+is small. Exact duplicate signatures are still omitted. Difference in shares
+does not imply significant benefit or personal suitability.
+
+Each strategy now controls both beam retention and bounded feasible-frontier
+retention with its existing lexicographic objective. All search orders put
+shortfall first. Capital-efficient search retains its prior expansion, stopping
+and ordering behavior. Alternate searches can extend complete plans using
+positive integer neighbours of selected-month cash-line intersections (balance)
+or equal resulting-position values (diversification). Existing holding cash
+and value participate in these calculations. Complete refinements continue only
+when they improve that strategy's ordering. No holdings are sold or replaced.
+
+The same objective order is shared by search and final plan selection. Each
+strategy retains the existing 64-state beam, 20,000-state expansion cap and
+round limit. Breakpoints are a heuristic, not exhaustive integer optimization;
+different beams may miss different plans. No new capital cap, concentration
+mandate, risk score or grade formula is introduced. A lower concentration can
+require substantially more capital, which must remain visible as a trade-off.
+Already-met/zero targets still return no additions. Data/product gates and
+budget-mode behavior are unchanged.
+
+Pareto filtering caches each plan's comparison vector once and maintains an
+incremental non-dominated set. It uses the same strict dominance relation,
+including removal of earlier members dominated by a later plan. A deterministic
+100-vector all-pairs reference test covers equivalence and input-order reversal;
+this optimization changes neither dominance tolerances nor search limits.
+
+Direct objective optimization can expose unattractive capital trade-offs. In
+the fixed zero-holding quarterly-100 replay, primary capital remains 4,699.48
+TWD, while the balanced search produces 122,987.44 TWD with displayed month
+spread 0.01, and the diversified search produces 268,706.92 TWD with maximum
+position 33.33%. These are not universally better portfolios. No unapproved
+capital cap or precision tolerance is added to suppress these results; owner
+review of their usefulness remains necessary before accepting the wider V5-4
+product behavior. The lexicographic objectives prioritize spread/concentration
+before capital, and capital is unbounded by the cash-target request.
+
+#### Validation on 2026-09-11
+
+- 17 focused solver tests passed; final full regression passed all 1,204 tests
+  in 187.537 seconds. Compileall and `git diff --check` passed. Timing is not a
+  controlled before/after latency benchmark.
+- The fixed 2026-09-06 eight-case replay preserves every primary addition and
+  required-capital result, all 8 x 263 eligibility/exclusion records, the full
+  263 x 18 field ledger, reference evidence and acceptance flags against #135.
+  Six TARGET_MET cases (including zero) and two intentional UNAVAILABLE cases
+  remain. The broad all-holding-cases eligibility flag remains false by design.
+- Strategy output grows from 17 to 18 records: the zero-holding every-month
+  3,000 case now has a distinct balanced plan. All positive-case strategy
+  searches disclose 20,000 explored states and truncation; no global optimum
+  or universal improvement is claimed. Each plan respects five addition codes.
+- Candidate SHA-256 remains
+  `1c52c0edd0d0ad644f07e427c3e10d6a33e222f9b650f50b7c403845b951250e`,
+  integrity `ok`, foreign-key violations zero. No source, database, service,
+  public schema or grade formula changed.
+
+Selected-month spread/capital comparisons for the balanced view (TWD):
+
+| Case | Prior capital / spread | New capital / spread |
+| --- | ---: | ---: |
+| No holdings, quarterly 100 | 5,437.20 / 43.04 | 122,987.44 / 0.01 |
+| 0050 holding, quarterly 100 | 5,437.20 / 43.04 | 122,987.44 / 0.01 |
+| 0050 + 00878, quarterly 100 | 5,437.20 / 43.04 | 122,987.44 / 0.01 |
+| No holdings, every-month 3,000 | No distinct balanced record | 1,561,200.00 / 2,600.04 |
+| 00929 holding, every-month 3,000 | 923,702.53 / 3,749.33 | 1,512,906.27 / 2,632.48 |
+
+These are trade-offs, not buying instructions. In particular, the new
+zero-holding every-month balanced plan has one ETF and 100% position
+concentration. Better cash balance must not be described as lower risk.
 
 The search is a deterministic bounded beam search. It expands exact whole-share
 batches around each remaining monthly constraint and records whether state or

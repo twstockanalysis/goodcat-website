@@ -122,6 +122,13 @@ class TestAllocationResults(unittest.TestCase):
             ["資金精簡方案", "穩定均衡方案", "分散防護方案"],
         )
         self.assertEqual(build_integer.call_count, 3)
+        self.assertEqual(
+            [call.kwargs["plan_objective"] for call in build_integer.call_args_list],
+            ["CAPITAL_EFFICIENT", "MONTHLY_BALANCED", "DIVERSIFIED_PROTECTION"],
+        )
+        # These mocked plans have equal cash/capital metrics but distinct codes:
+        # retain them without an invented percentage-improvement filter.
+        self.assertEqual(len(response.plans), 3)
         self.assertTrue(
             all(
                 any(
