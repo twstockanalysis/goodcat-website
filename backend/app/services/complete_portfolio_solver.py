@@ -644,4 +644,120 @@ def solve_budget_frontier(
         active = next_states[:beam_width]
 
     frontier = _non_dominated_budget(plan_pool)
-    return BudgetPortfolioSearch(frontier, explored, truncated)
+    return _refine_budget_frontier(
+        frontier, ordered, months, current, investable_budget,
+        max_added_etfs, explored, max_expansions, truncated,
+    )
+
+
+def _budget_exchange_quantities(
+    plan: BudgetPortfolioPlan,
+    source: CompletePortfolioCandidate,
+    destination: CompletePortfolioCandidate,
+    source_quantity: int,
+    remaining_budget: Decimal,
+) -> tuple[int, ...]:
+    """Integer neighbours of continuous month-line crossings for one exchange.
+
+    This removes only proposed additions, never original holdings. The actual
+    destination quantity is floored and independently budget-checked later.
+    """
+    quantities = {0, source_quantity}
+    cash = plan.monthly_resulting_cash
+    price_ratio = source.reference_price / destination.reference_price
+    free_shares = remaining_budget / destination.reference_price
+    intercepts = [amount + free_shares * destination.monthly_cash_per_share[m - 1]
+                  for m, amount in cash]
+    slopes = [price_ratio * destination.monthly_cash_per_share[m - 1]
+              - source.monthly_cash_per_share[m - 1] for m, _ in cash]
+    for i in range(len(cash)):
+        for j in range(i + 1, len(cash)):
+            difference = slopes[i] - slopes[j]
+            if not difference:
+                continue
+            crossing = (intercepts[j] - intercepts[i]) / difference
+            if 0 < crossing < source_quantity:
+                ceiling = _ceil_quantity(crossing)
+                quantities.update(q for q in (ceiling - 1, ceiling, ceiling + 1)
+                                  if 0 <= q <= source_quantity)
+    return tuple(sorted(quantities))
+
+
+def _refine_budget_frontier(
+    frontier: tuple[BudgetPortfolioPlan, ...],
+    candidates: tuple[CompletePortfolioCandidate, ...],
+    months: tuple[int, ...],
+    current: Mapping[int, Decimal],
+    budget: Decimal,
+    max_added_etfs: int,
+    explored: int,
+    max_expansions: int,
+    truncated: bool,
+) -> BudgetPortfolioSearch:
+    """Improve the incumbent using only unused state capacity from batch search."""
+    by_code = {c.etf_code: c for c in candidates}
+    seen = {p.shares for p in frontier}
+    incumbent = frontier[0]
+    # No available refinement work when the original search exhausted its cap
+    # or returned no additions. Preserve that result exactly.
+    if not incumbent.shares or explored >= max_expansions:
+        return BudgetPortfolioSearch(frontier, explored, truncated)
+    while incumbent.shares and explored < max_expansions:
+        start = incumbent
+        remaining = budget - start.used_budget
+        improved = []
+        for source_code, source_quantity in start.shares:
+            source = by_code[source_code]
+            for destination in candidates:
+                if destination.etf_code == source_code:
+                    continue
+                if not any(destination.monthly_cash_per_share[m - 1] > 0 for m in months):
+                    continue
+                removals = _budget_exchange_quantities(
+                    start, source, destination, source_quantity, remaining,
+                )
+                for removed in removals:
+                    available = remaining + source.reference_price * removed
+                    affordable = int(available // destination.reference_price)
+                    for added in sorted({affordable, max(0, affordable - 1)}):
+                        if explored >= max_expansions:
+                            return BudgetPortfolioSearch(
+                                _non_dominated_budget((*frontier, *improved)), explored, True,
+                            )
+                        # Count every attempted exchange (including duplicate or
+                        # rejected vectors); the public cap covers both phases.
+                        explored += 1
+                        shares = dict(start.shares)
+                        shares[source_code] -= removed
+                        shares[destination.etf_code] = shares.get(destination.etf_code, 0) + added
+                        signature = tuple(sorted((code, q) for code, q in shares.items() if q > 0))
+                        if signature in seen or len(signature) > max_added_etfs:
+                            continue
+                        seen.add(signature)
+                        exact = sum((by_code[c].reference_price * q for c, q in signature), _ZERO)
+                        displayed = sum((
+                            (by_code[c].reference_price * q).quantize(
+                                Decimal('.01'), rounding=ROUND_HALF_UP,
+                            ) for c, q in signature
+                        ), _ZERO)
+                        if exact > budget or displayed > budget:
+                            continue
+                        added_cash = tuple((m, sum((
+                            by_code[c].monthly_cash_per_share[m - 1] * q for c, q in signature
+                        ), _ZERO)) for m in months)
+                        plan = BudgetPortfolioPlan(
+                            signature, exact, added_cash,
+                            tuple((m, current.get(m, _ZERO) + cash) for m, cash in added_cash),
+                        )
+                        if _budget_order(plan) < _budget_order(incumbent) and not any(
+                            _budget_dominates(old, plan) for old in frontier
+                        ):
+                            improved.append(plan)
+                            incumbent = plan
+        if not improved:
+            break
+        frontier = _non_dominated_budget((*frontier, *improved))
+        incumbent = frontier[0]
+        if _budget_order(incumbent) >= _budget_order(start):
+            break
+    return BudgetPortfolioSearch(frontier, explored, truncated or explored >= max_expansions)

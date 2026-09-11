@@ -337,6 +337,96 @@ and cash-target results, deterministic bounds/Pareto equivalence, JSON
 round-trip, exact/rounded costs, HTTP validation/404/500 and public rate limits.
 No running-service or browser acceptance was performed; frontend is out of scope.
 
+### Incumbent-preserving budget exchange refinement (#143)
+
+The #141 replay above is the pre-refinement baseline, not the latest result.
+The public objective, response shape, data gates and cash-target algorithm stay
+unchanged. No new user target, quality score, risk label or hiding threshold is
+introduced. This budget-only refinement does not invoke the cash-target solver.
+
+1. Run the original one/half/full-affordable batch search without reducing its
+   state allowance. Keep its returned frontier and selected incumbent.
+2. Use only remaining capacity under the same overall 20,000-state ceiling.
+   If the batch search has exhausted that allowance or has no additions, return
+   its result unchanged.
+3. For each proposed source/destination ETF pair, consider transferring part or
+   all of the **proposed new investment**, plus remaining cash, to the
+   destination. Only proposed additions may be reduced; original holding units
+   and cash are immutable. A full source replacement may release an addition
+   slot, but no result may have more than five added codes.
+4. Derive continuous selected-month cash-line intersections for the exchange.
+   Try integer neighbours around each intersection and the no-removal/full-
+   removal endpoints. For each, try affordable destination shares and one less.
+   Recompute the actual whole-share portfolio and check exact and per-position
+   rounded costs; continuous line calculations never become a returned plan.
+5. Accept only strict improvements under the existing budget order that are
+   not dominated by the retained frontier. Recompute the Pareto frontier and
+   refine its incumbent until no improvement is found or state capacity ends.
+
+The month lines include original holding cash and all current proposed
+additions. For removed source quantity x, destination quantity is approximated
+only for locating crossings by `(remaining + source_price * x) / dest_price`;
+actual destination additions use its floor (or one less) and exact cash facts.
+This can find complementary integer mixes missed by coarse batches. A synthetic
+10-unit budget fixture improves from minimum-month cash 15 to 18 by changing
+A/B additions from 5/5 to 6/4. Original holding cash shifts the intersection and
+is covered separately by a regression test.
+
+`search_explored_states` now counts the original batch states plus every
+attempted exchange portfolio, including duplicate and rejected exchanges.
+Counts are not globally unique portfolios across phases. This conservative
+accounting bounds refinement rather than granting it a second 20,000-state
+allowance. Reaching that limit sets truncation; finding no local improvement
+does not prove global optimality. Pairwise neighbours can still miss multi-ETF
+or distant improvements, and a coarse search that already consumes the entire
+allowance receives no refinement. No cross-budget monotonicity is promised.
+
+The incumbent guarantee compares the selected plan under the same request,
+facts and original search bounds; it does not promise less capital or lower
+risk. Cash can improve while cost, concentration or ETF count changes. Existing
+Pareto filtering still applies, so it need not retain every old frontier member.
+Tiny additions are not automatically hidden; practical usefulness and alternate
+card policy remain separate owner decisions.
+
+#### Refinement validation (2026-09-11)
+
+47 focused budget/refinement/solver tests passed. Full regression passed 1,236
+tests in 182.699 seconds; compileall and `git diff --check` passed. The seven new
+tests cover missed complementary quantities, unchanged original holding cash,
+combined state limits, zero-budget preservation, replacement at the addition
+limit, per-position rounding, and twelve seeded incumbent/order-invariance cases.
+Timing is not a controlled performance comparison with earlier runs.
+
+The same immutable candidate/date and eight budget cases used for #141 give:
+
+| Case | Prior / refined minimum monthly cash TWD | Refined used budget TWD | Added codes | Total states |
+| --- | ---: | ---: | ---: | ---: |
+| No holdings, quarterly, budget 5,000 | 106.18 / 106.59 | 4,993.78 | 2 | 3,528 |
+| 0050 holding, quarterly, budget 5,000 | 106.18 / 106.59 | 4,993.78 | 2 | 3,398 |
+| 0050 + 00878, quarterly, budget 5,000 | 106.18 / 106.59 | 4,993.78 | 2 | 3,398 |
+| No holdings, all months, budget 1,000,000 | 2,835.45 / 3,148.17 | 999,977.10 | 4 | 20,000 |
+| 00929 holding, all months, budget 1,000,000 | 3,583.04 / 3,873.76 | 999,995.53 | 3 | 20,000 |
+
+All five AVAILABLE cases retain truncation disclosure. Zero-budget and the two
+intentional UNAVAILABLE payloads are exactly unchanged. All 8 x 263 eligibility
+items and snapshots, original holding facts/units, budget ceilings and maximum
+five additions are preserved. The recorded candidate SHA-256 is unchanged,
+SQLite integrity is `ok`, and foreign-key violations remain zero. No database,
+cash-target algorithm, source, schema or live service changed.
+
+The no-holding monthly replay now exceeds the previously known 3,000 cash floor,
+but this closes a regression example, not a proof of optimality. Its four added
+codes still include four shares of 00701 and one share of 00900. The 00929-held
+case uses 3.29 TWD more than before while increasing its minimum cash. These
+facts illustrate why better objective values must not be described as uniformly
+less capital, lower risk or greater practical usefulness. No browser acceptance
+or global-optimum certification was performed.
+
+Reproduce with the #141 candidate/date/budgets and `build_budget_allocation`,
+comparing against the recorded prior budget replay. Compare full candidate
+evidence, snapshots, original holdings and zero/unavailable payloads, not only
+the summary cash values; verify candidate hash and integrity before and after.
+
 ## Missing data and evidence boundaries
 
 The solver accepts twelve explicit monthly cash values for each gated
