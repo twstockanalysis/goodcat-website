@@ -32,6 +32,62 @@ def candidate(
 
 
 class TestCompletePortfolioSolver(unittest.TestCase):
+    def test_cap_zero_exact_and_insufficient_for_every_objective(self) -> None:
+        inputs = [candidate("A", "10", {1: "1"})]
+        for objective in ("CAPITAL_EFFICIENT", "MONTHLY_BALANCED", "DIVERSIFIED_PROTECTION"):
+            for ceiling in (Decimal(0), Decimal(19), Decimal(20)):
+                with self.subTest(objective=objective, ceiling=ceiling):
+                    search = solve_cash_target_frontier(
+                        inputs, selected_months=[1], target_cash_by_month={1: Decimal(2)},
+                        current_value_by_code={"HELD": Decimal(10000)},
+                        max_additional_capital=ceiling, objective=objective,
+                    )
+                    self.assertTrue(all(p.additional_capital <= ceiling for p in search.frontier))
+                    self.assertEqual(any(p.complete for p in search.frontier), ceiling == 20)
+                    if ceiling == 0:
+                        self.assertEqual(search.frontier[0].shares, ())
+
+    def test_cap_search_explores_affordable_partial_boundary(self) -> None:
+        search = solve_cash_target_frontier(
+            [candidate("A", "10", {1: "1"})], selected_months=[1],
+            target_cash_by_month={1: Decimal(100)}, max_additional_capital=Decimal(35),
+        )
+        self.assertEqual(search.frontier[0].shares, (("A", 3),))
+        self.assertEqual(search.frontier[0].total_shortfall, 97)
+
+    def test_cap_limits_balance_refinement_without_counting_existing_value(self) -> None:
+        search = solve_cash_target_frontier(
+            [candidate("FEB", "1", {2: "1"})], selected_months=[1, 2],
+            target_cash_by_month={1: Decimal(10), 2: Decimal(10)},
+            current_cash_by_month={1: Decimal(100)},
+            current_value_by_code={"HELD": Decimal(10000)},
+            max_additional_capital=Decimal(40), objective="MONTHLY_BALANCED",
+        )
+        best = _select_plan(search.frontier, "MONTHLY_BALANCED", {})
+        self.assertEqual(best.shares, (("FEB", 40),))
+        self.assertEqual(best.month_imbalance, 60)
+        self.assertTrue(best.complete)
+
+    def test_cap_checks_sum_of_rounded_position_costs(self) -> None:
+        inputs = [candidate("JAN", "0.335", {1: "1"}),
+                  candidate("FEB", "0.335", {2: "1"})]
+        for cap, complete in (("0.67", False), ("0.68", True)):
+            search = solve_cash_target_frontier(
+                inputs, selected_months=[1, 2],
+                target_cash_by_month={1: Decimal(1), 2: Decimal(1)},
+                max_additional_capital=Decimal(cap),
+            )
+            self.assertEqual(any(p.complete for p in search.frontier), complete)
+
+    def test_null_cap_preserves_default_and_invalid_caps_fail_closed(self) -> None:
+        args = dict(selected_months=[1], target_cash_by_month={1: Decimal(10)})
+        inputs = [candidate("A", "10", {1: "1"})]
+        self.assertEqual(solve_cash_target_frontier(inputs, **args),
+                         solve_cash_target_frontier(inputs, max_additional_capital=None, **args))
+        for value in ("-1", "NaN", "Infinity", "-Infinity"):
+            with self.subTest(value=value), self.assertRaisesRegex(ValueError, "ceiling"):
+                solve_cash_target_frontier(inputs, max_additional_capital=Decimal(value), **args)
+
     def test_incremental_frontier_matches_all_pairs_reference(self) -> None:
         rng = Random(137)
         # Synthetic comparison vectors exercise ties, partials and trade-offs.
@@ -49,6 +105,17 @@ class TestCompletePortfolioSolver(unittest.TestCase):
         ))
         self.assertEqual(_non_dominated(plans + [plans[0]]), expected)
         self.assertEqual(_non_dominated(list(reversed(plans))), expected)
+
+    def test_zero_cap_preserves_already_sufficient_existing_cash(self) -> None:
+        search = solve_cash_target_frontier(
+            [], selected_months=[1], target_cash_by_month={1: Decimal(10)},
+            current_cash_by_month={1: Decimal(10)},
+            current_value_by_code={"HELD": Decimal(5000)},
+            max_additional_capital=Decimal(0), objective="DIVERSIFIED_PROTECTION",
+        )
+        self.assertTrue(search.frontier[0].complete)
+        self.assertEqual(search.frontier[0].additional_capital, 0)
+        self.assertEqual(search.frontier[0].shares, ())
 
     def test_balanced_search_refines_beyond_first_complete_plan(self) -> None:
         arguments = dict(

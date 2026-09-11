@@ -15,6 +15,20 @@ from backend.app.services.complete_portfolio_solver import solve_cash_target_fro
 
 
 class TestIntegerAllocation(unittest.TestCase):
+    def test_service_reports_cap_and_explicit_incomplete_state(self) -> None:
+        self._insert_ready_etfs(2)
+        for objective in ("CAPITAL_EFFICIENT", "MONTHLY_BALANCED", "DIVERSIFIED_PROTECTION"):
+            with self.subTest(objective=objective):
+                result = build_integer_allocation(
+                    self._request(max_additional_capital_twd="1999.99"), self.database_path,
+                    as_of_date=date(2026, 1, 1), plan_objective=objective,
+                )
+                self.assertEqual(result.status, "PARTIAL")
+                self.assertLessEqual(result.total_required_additional_capital, Decimal("1999.99"))
+                self.assertEqual(result.assumptions.max_additional_capital_twd, Decimal("1999.99"))
+                self.assertIn("NO_COMPLETE_PLAN_WITHIN_CAP", {i.code for i in result.issues})
+                self.assertNotIn("TARGET_MONTH_COVERAGE_INCOMPLETE", {i.code for i in result.issues})
+
     def test_service_propagates_strategy_to_real_solver(self) -> None:
         self._insert_ready_etfs(2)
         for objective in ("MONTHLY_BALANCED", "DIVERSIFIED_PROTECTION"):

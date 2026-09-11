@@ -12,6 +12,28 @@ from backend.app.main import app
 
 
 class TestIntegerAllocationApi(unittest.TestCase):
+    def test_optional_ceiling_validation_and_echo_on_both_endpoints(self) -> None:
+        for endpoint in ("integer-allocation", "allocation-results"):
+            for cap in (None, "0", "1234.56"):
+                with self.subTest(endpoint=endpoint, cap=cap):
+                    response = self.client.post(
+                        f"/api/v1/allocation-plans/{endpoint}",
+                        json={"target_after_tax_cash_twd": "0", "target_months": [1],
+                              "max_additional_capital_twd": cap},
+                    )
+                    self.assertEqual(response.status_code, 200)
+                    payload = response.json()
+                    result = payload if endpoint == "integer-allocation" else payload["plans"][0]["result"]
+                    self.assertEqual(result["assumptions"]["max_additional_capital_twd"], cap)
+            for cap in ("-1", "NaN", "Infinity", "1.001", "10000000000000000.00"):
+                with self.subTest(endpoint=endpoint, invalid=cap):
+                    response = self.client.post(
+                        f"/api/v1/allocation-plans/{endpoint}",
+                        json={"target_after_tax_cash_twd": "0", "target_months": [1],
+                              "max_additional_capital_twd": cap},
+                    )
+                    self.assertEqual(response.status_code, 422)
+
     def setUp(self) -> None:
         self.temp_directory = tempfile.TemporaryDirectory()
         self.database_path = Path(self.temp_directory.name) / "api.db"

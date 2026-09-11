@@ -166,6 +166,71 @@ Resulting allocation percentages remain available for later plan-level risk and
 trade-off comparison. V5-4 does not convert concentration into a single-ETF
 quality score.
 
+## Optional cash-target capital ceiling (#139)
+
+The owner approved an optional user-entered additional-capital ceiling after
+reviewing #137's high-capital alternatives. It constrains all three strategies
+during search rather than hiding completed over-budget portfolios. Null/omitted
+retains the prior unlimited behavior, while formal zero permits no additions.
+Existing holdings are preserved and do not consume new capital. This is still
+cash-target mode, not the separate target-free investable-budget foundation.
+
+For each candidate expansion, the search derives affordable whole shares from
+remaining exact capital, includes boundary quantities, and rejects costs beyond
+the ceiling. It additionally checks the sum of per-ETF costs rounded HALF_UP to
+TWD cents, matching the response. For example, two costs of 0.335 require 0.68
+in the displayed aggregate, so they cannot jointly pass a 0.67 ceiling.
+
+The response echoes the ceiling and rejects an aggregate above it. If the search
+finds no complete plan within the cap, explicit PARTIAL/shortfall evidence and
+`NO_COMPLETE_PLAN_WITHIN_CAP` distinguish it from a complete plan. Bounded
+search is not a proof of infeasibility; no data gate is relaxed to meet a cap.
+An already-met target needs no additions even at cap zero. Missing holding
+facts and absent eligible candidates retain their existing unavailable states.
+
+The transaction-cost rate remains explicitly zero; this constrains modeled
+investment, not real execution costs. No default cap, grade, source, scenario,
+or public form change is introduced. Exact-signature deduplication remains.
+
+### Capital-ceiling validation (2026-09-11)
+
+Focused validation passed 23 solver and 12 allocation service/API tests. Final
+regression passed 1,212 tests in 169.119 seconds; compileall and diff checks
+passed. Additional live TestClient checks confirmed zero-cap propagation through
+the inherited long-term-scenarios and portfolio-projections endpoints, using a
+temporary test database (not the running services).
+
+The fixed 2026-09-06 unlimited audit matches #137's 263 x 18 field ledger,
+eight primary-case summaries including 8 x 263 eligibility decisions, strategy
+counts, reference evidence and acceptance flags after excluding only the new
+null request field. This is not a byte comparison of every alternative payload.
+Six TARGET_MET primary cases (including formal zero) and two intentional
+UNAVAILABLE cases remain; the aggregate all-holding eligibility flag remains
+false by design. Candidate integrity is `ok`, FK violations zero, and SHA-256
+is unchanged: `1c52c0edd0d0ad644f07e427c3e10d6a33e222f9b650f50b7c403845b951250e`.
+
+A separate eight-case capped replay uses test values, not automatic defaults:
+
+| Case | Test cap TWD | Returned capital TWD (capital / balanced / diversified) |
+| --- | ---: | --- |
+| No holdings, quarterly 100 | 5,000 | 4,699.48 / 4,985.96 / 4,993.88 |
+| 0050 holding, quarterly 100 | 5,000 | 4,713.24 / 4,985.96 / 4,993.88 |
+| 0050 + 00878, quarterly 100 | 5,000 | 4,713.24 / 4,985.96 / 4,993.88 |
+| No holdings, every-month 3,000 | 1,000,000 | 953,034.38 / duplicate omitted / 999,998.20 |
+| 00929 holding, every-month 3,000 | 1,000,000 | 923,663.78 / duplicate omitted / 999,999.70 |
+
+The other three cases preserve unsupported/missing-price unavailability and
+formal-zero success. All 16 returned strategy/state records stay within the
+submitted cap and at most five additions; successful monthly results have zero
+shortfall. Synthetic tests separately cover insufficient and exact ceilings,
+rounded position sums and already-sufficient holdings at cap zero.
+
+The affordability boundary changes explored batches when a cap is supplied.
+Consequently a bounded search may return a different or slightly higher-capital
+primary even when the prior unlimited plan fits (00929: 923,647.39 unlimited
+versus 923,663.78 capped). No monotonic-improvement or global-minimum guarantee
+is made. Omitted/null preserves the old search path. No database was modified.
+
 ## Budget-mode foundation
 
 `solve_budget_frontier()` establishes the separate investable-budget boundary:

@@ -133,6 +133,7 @@ def build_integer_allocation(
     )
     index = built_index.response
     assumptions = IntegerAllocationAssumptions(
+        max_additional_capital_twd=request.max_additional_capital_twd,
         cash_deduction_rate_pct=request.cash_deduction_rate_pct,
         max_candidate_allocation_pct=index.rules.max_candidate_allocation_pct,
     )
@@ -263,6 +264,7 @@ def build_integer_allocation(
         },
         max_added_etfs=5,
         objective=plan_objective,
+        max_additional_capital=request.max_additional_capital_twd,
     )
     selected_plan = _select_plan(search.frontier, plan_objective, current_cash)
     selected_shares = dict(selected_plan.shares)
@@ -356,8 +358,15 @@ def build_integer_allocation(
     if status == IntegerAllocationStatus.PARTIAL:
         issues.append(
             _issue(
-                "TARGET_MONTH_COVERAGE_INCOMPLETE",
-                "通過門檻的候選 ETF 無法涵蓋所有目標月份。",
+                ("NO_COMPLETE_PLAN_WITHIN_CAP"
+                 if request.max_additional_capital_twd is not None
+                 else "TARGET_MONTH_COVERAGE_INCOMPLETE"),
+                ("本次有界搜尋未在新增資金上限內找到所有目標月份達標的完整方案；"
+                 "目前結果仍有缺口，不代表已證明不存在可行方案。"
+                 if request.max_additional_capital_twd is not None
+                 else "通過門檻的候選 ETF 無法涵蓋所有目標月份。"),
+                ("max_additional_capital_twd"
+                 if request.max_additional_capital_twd is not None else None),
             )
         )
     return IntegerAllocationResponse(

@@ -318,6 +318,15 @@ until V5-6 owner acceptance.
 
 ## 9. Deferred decisions
 
+### Owner clarification for #139
+
+Allow an optional user-entered additional-capital ceiling in cash-target mode.
+All three strategies search within it; omitted/null remains unlimited and zero
+allows no new investment. Existing holdings do not consume this allowance.
+Report an explicit incomplete state when no complete plan is found within it;
+do not merely hide over-budget plans after searching. This authorizes neither
+automatic caps nor the previously rejected minimum-improvement filter.
+
 ### Owner clarification for #137
 
 Keep distinct strategy portfolios without the proposed 1% improvement filter.

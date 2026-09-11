@@ -8,7 +8,7 @@ select a feasible portfolio, and returns bounded-search evidence explicitly.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from decimal import Decimal, ROUND_CEILING
+from decimal import Decimal, ROUND_CEILING, ROUND_HALF_UP
 from typing import Mapping, Sequence
 
 
@@ -288,6 +288,7 @@ def solve_cash_target_frontier(
     beam_width: int = 64,
     max_expansions: int = 20_000,
     objective: str = "CAPITAL_EFFICIENT",
+    max_additional_capital: Decimal | None = None,
 ) -> CompletePortfolioSearch:
     """Search whole-share combinations and return a deterministic Pareto set.
 
@@ -297,6 +298,10 @@ def solve_cash_target_frontier(
     """
 
     ordered = _validated_candidates(candidates)
+    if max_additional_capital is not None and (
+        not max_additional_capital.is_finite() or max_additional_capital < 0
+    ):
+        raise ValueError("additional capital ceiling must be finite and non-negative")
     months = _validated_months(selected_months)
     current = dict(current_cash_by_month or {})
     current_value = dict(current_value_by_code or {})
@@ -363,6 +368,16 @@ def solve_cash_target_frontier(
                     quantities.add(covering)
                     quantities.add(max(1, covering - 1))
                     quantities.add(max(1, covering // 2))
+                if max_additional_capital is not None:
+                    affordable = int(
+                        (max_additional_capital - state.capital) // candidate.reference_price
+                    )
+                    if affordable < 1:
+                        continue
+                    # Explore the boundary, rather than merely rejecting an
+                    # over-budget covering/refinement batch after the search.
+                    quantities.update((affordable, max(1, affordable - 1)))
+                    quantities = {q for q in quantities if q <= affordable}
                 for quantity in sorted(quantities):
                     if explored >= max_expansions:
                         truncated = True
@@ -375,6 +390,16 @@ def solve_cash_target_frontier(
                     signature = tuple(sorted(new_map.items()))
                     if signature in seen:
                         continue
+                    if max_additional_capital is not None:
+                        exact_cost = state.capital + candidate.reference_price * quantity
+                        displayed_cost = sum((
+                            (prices[code] * count).quantize(
+                                Decimal("0.01"), rounding=ROUND_HALF_UP
+                            ) for code, count in signature
+                        ), _ZERO)
+                        if (exact_cost > max_additional_capital
+                                or displayed_cost > max_additional_capital):
+                            continue
                     seen.add(signature)
                     monthly_added = tuple(
                         state.monthly_added[position]
