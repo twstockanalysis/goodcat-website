@@ -34,9 +34,23 @@ from backend.app.services.market_eligibility_index import (
     build_market_eligibility_index,
 )
 from backend.app.services.public_planner import analyze_public_planner_baseline
+from backend.app.models.budget_allocation import BudgetAllocationRequest, BudgetAllocationResponse
+from backend.app.services.budget_allocation import build_budget_allocation
 
 
 router = APIRouter(prefix="/api/v1/allocation-plans", tags=["Public Planner"])
+
+
+@router.post(
+    "/budget-allocation",
+    response_model=BudgetAllocationResponse,
+    summary="建立無配息目標的預算內整股配置情境",
+)
+def create_budget_allocation(
+    request: BudgetAllocationRequest,
+    database_path: Path = Depends(get_database_path),
+) -> BudgetAllocationResponse:
+    return build_budget_allocation(request, database_path)
 
 
 @router.post(

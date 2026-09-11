@@ -498,14 +498,16 @@ def _non_dominated_budget(
     plans: Sequence[BudgetPortfolioPlan],
 ) -> tuple[BudgetPortfolioPlan, ...]:
     ordered = sorted({plan.shares: plan for plan in plans}.values(), key=_budget_order)
-    return tuple(
-        plan
-        for plan in ordered
-        if not any(
-            other.shares != plan.shares and _budget_dominates(other, plan)
-            for other in ordered
-        )
-    )
+    skyline: list[tuple[BudgetPortfolioPlan, tuple[Decimal, ...]]] = []
+    for plan in ordered:
+        values = (plan.used_budget, Decimal(plan.added_etf_count), *(
+            -cash for _, cash in plan.monthly_resulting_cash
+        ))
+        if any(_values_dominate(other, values) for _, other in skyline):
+            continue
+        skyline = [(p, v) for p, v in skyline if not _values_dominate(values, v)]
+        skyline.append((plan, values))
+    return tuple(plan for plan, _ in skyline)
 
 
 def solve_budget_frontier(
@@ -516,31 +518,47 @@ def solve_budget_frontier(
     current_cash_by_month: Mapping[int, Decimal] | None = None,
     max_added_etfs: int = 5,
     beam_width: int = 64,
+    max_expansions: int = 20_000,
 ) -> BudgetPortfolioSearch:
     """Build a bounded whole-share budget frontier without exceeding budget."""
 
+    if any(
+        not item.reference_price.is_finite()
+        or any(not cash.is_finite() for cash in item.monthly_cash_per_share)
+        for item in candidates
+    ):
+        raise ValueError("budget candidate facts must be finite")
     ordered = _validated_candidates(candidates)
     months = _validated_months(selected_months)
     current = dict(current_cash_by_month or {})
-    if investable_budget < 0:
-        raise ValueError("investable budget cannot be negative")
-    if any(current.get(month, _ZERO) < 0 for month in months):
-        raise ValueError("current cash cannot be negative")
-    if max_added_etfs < 1 or max_added_etfs > 5 or beam_width < 1:
+    if not investable_budget.is_finite() or investable_budget < 0:
+        raise ValueError("investable budget must be finite and non-negative")
+    if any(not current.get(month, _ZERO).is_finite()
+           or current.get(month, _ZERO) < 0 for month in months):
+        raise ValueError("current cash must be finite and non-negative")
+    if (max_added_etfs < 1 or max_added_etfs > 5
+            or beam_width < 1 or max_expansions < 1):
         raise ValueError("invalid budget search bounds")
 
     initial = _State((), _ZERO, tuple(_ZERO for _ in months))
     active = [initial]
-    plan_pool: list[BudgetPortfolioPlan] = []
+    plan_pool = [BudgetPortfolioPlan(
+        (), _ZERO, tuple((month, _ZERO) for month in months),
+        tuple((month, current.get(month, _ZERO)) for month in months),
+    )]
+    prices = {item.etf_code: item.reference_price for item in ordered}
     seen = {initial.shares}
     explored = 1
     truncated = False
     for _ in range(max_added_etfs):
+        stop_search = False
         next_states = []
         for state in active:
             present = dict(state.shares)
             for candidate in ordered:
                 if candidate.etf_code in present:
+                    continue
+                if not any(candidate.monthly_cash_per_share[m - 1] > 0 for m in months):
                     continue
                 affordable = int(
                     (investable_budget - state.capital) // candidate.reference_price
@@ -549,13 +567,22 @@ def solve_budget_frontier(
                     continue
                 quantities = {1, affordable, max(1, affordable // 2)}
                 for quantity in sorted(quantities):
+                    if explored >= max_expansions:
+                        truncated = True
+                        stop_search = True
+                        break
                     new_map = dict(present)
                     new_map[candidate.etf_code] = quantity
                     signature = tuple(sorted(new_map.items()))
                     if signature in seen:
                         continue
                     capital = state.capital + candidate.reference_price * quantity
-                    if capital > investable_budget:
+                    displayed_capital = sum((
+                        (prices[code] * count).quantize(
+                            Decimal("0.01"), rounding=ROUND_HALF_UP
+                        ) for code, count in signature
+                    ), _ZERO)
+                    if capital > investable_budget or displayed_capital > investable_budget:
                         continue
                     seen.add(signature)
                     new_state = _State(
@@ -584,6 +611,12 @@ def solve_budget_frontier(
                             ),
                         )
                     )
+                if stop_search:
+                    break
+            if stop_search:
+                break
+        if stop_search:
+            break
         if not next_states:
             break
         if len(plan_pool) > beam_width * 4:

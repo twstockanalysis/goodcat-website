@@ -245,9 +245,97 @@ is made. Omitted/null preserves the old search path. No database was modified.
 - Pareto filtering removes a plan only when another uses no more budget, is no
   more complex and provides at least as much cash in every selected month.
 
-The current public request remains cash-target only. Adding budget mode to the
-public Pydantic and FastAPI contracts is a later additive V5-4 step and must not
-be simulated by overloading the cash-target field.
+### Public budget orchestration (#141)
+
+The separate `/api/v1/allocation-plans/budget-allocation` endpoint now exposes
+one selected plan from this foundation. Its input is a required new-investment
+budget and selected months, not a cash target. Other budget strategy formulas,
+public cards, planning grades and scenario changes remain deferred. The
+cash-target API and solver are unchanged.
+
+The service reuses the existing baseline and market eligibility readers through
+an internal compatibility envelope with a zero target. Only holding facts,
+modeled cash and eligibility evidence are consumed: the envelope's target and
+shortfall fields are discarded and never passed to a cash-target solver. The
+submitted budget never becomes a target. Tests compare the public market
+evidence and snapshot against the existing eligibility endpoint.
+
+The response preserves original holding facts even when data is unavailable.
+Missing selected-month cash is null, not zero; missing holding value also blocks
+new allocations. Complete facts at zero budget produce an unchanged portfolio.
+No eligible candidate and no affordable/useful addition have separate evidence.
+At most five ETF codes receive additions, independent of the original ETF count.
+
+Budget search now starts with a no-addition plan, so zero budget, no eligible
+candidate or no affordable share cannot yield an empty frontier. Candidates
+with zero cash in every selected month do not consume budget. Budget and cash
+facts must be finite/nonnegative, prices positive. Every expansion checks exact
+cost and the sum of rounded per-position costs against the submitted budget.
+Displayed remaining capital is budget minus that rounded sum; transaction costs
+remain explicitly zero.
+
+The original batches (one share, affordable whole shares, half of affordable
+shares) and lexicographic ordering remain. Each code is expanded once per path,
+with at most five rounds. A 20,000-state ceiling additionally bounds the existing
+64-state beam. Beam/frontier/state pruning is disclosed; lack of pruning is
+not proof of exhaustive integer search. Nontrivial searches always disclose
+bounded best effort. A small quantity change not in the batches may be missed.
+
+Budget Pareto filtering retains the same cost/count/per-month cash relation via
+an incremental cached-vector skyline. A deterministic all-pairs reference test
+covers ties, reverse input order and duplicate signatures. It is not a new
+quality, risk or balance threshold. No current holding is sold or replaced.
+
+#### Fixed-candidate budget replay (2026-09-11)
+
+The eight existing audit fixtures were adapted by keeping months/holdings and
+replacing the cash target with test budgets (not product defaults): 5,000 TWD
+for quarterly cases, 1,000,000 for all-month cases, and zero for the former
+formal-zero-target fixture. The evaluation date remains 2026-09-06.
+
+| Case | Budget / used TWD | Minimum selected-month modeled cash TWD | Added codes |
+| --- | ---: | ---: | ---: |
+| No holdings, quarterly | 5,000 / 4,999.68 | 106.18 | 1 |
+| 0050 holding, quarterly | 5,000 / 4,999.68 | 106.18 | 1 |
+| 0050 + 00878, quarterly | 5,000 / 4,999.68 | 106.18 | 1 |
+| No holdings, all months | 1,000,000 / 999,999.14 | 2,835.45 | 3 |
+| 00929 holding, all months | 1,000,000 / 999,992.24 | 3,583.04 | 2 |
+
+These five AVAILABLE records all disclose truncation (2,698 / 2,613 / 2,613 /
+6,419 / 8,726 explored states in table order). The zero-budget record returns
+NO_ADDITIONS; unsupported-holding and missing-price records remain UNAVAILABLE.
+All eight records preserve the full 263-candidate eligibility evidence and
+snapshot IDs against the existing index, respect the budget and addition count,
+and retain the original holdings. Candidate SHA-256 remains
+`1c52c0edd0d0ad644f07e427c3e10d6a33e222f9b650f50b7c403845b951250e`,
+integrity `ok`, FK violations zero. There is no source/database/service change.
+
+**Known search limitation:** in the no-holding all-month case, the #139
+cash-target search already found a 953,034.38 TWD plan meeting 3,000 each month,
+while this budget foundation finds only a 2,835.45 minimum using 999,999.14.
+Different bounded batches miss known better combinations; this endpoint is
+not certified as globally best or as more effective than cash-target search.
+Its Pareto frontier is relative to visited plans, not every feasible portfolio.
+The three-code result also contains two single-share additions: distinct or
+non-dominated does not establish practical usefulness. Improving budget search
+and choosing useful alternate cards remain explicit follow-up work before
+V5-4 usefulness acceptance; no unapproved hiding threshold is applied here.
+
+Reproduce with `deployment.v5_full_database_audit.build_audit_cases`, the
+recorded candidate/date, `BudgetAllocationRequest` and `build_budget_allocation`
+using the budgets above. Compare each response's `candidate_evidence` and
+`snapshot_id` with `build_market_eligibility_index` on the original fixture;
+check budget reconciliation, retained holdings, hash and SQLite integrity.
+All eight stored replay payloads also pass the final response reconciliation
+guards (exact and per-position rounded costs).
+
+Final validation: 49 focused budget/solver/cash-target service/API tests passed;
+full regression passed 1,229 tests in 294.624 seconds. Compileall and
+`git diff --check` passed. Tests include zero/unaffordable budgets, more than
+five original holdings, missing cash versus missing price, unchanged eligibility
+and cash-target results, deterministic bounds/Pareto equivalence, JSON
+round-trip, exact/rounded costs, HTTP validation/404/500 and public rate limits.
+No running-service or browser acceptance was performed; frontend is out of scope.
 
 ## Missing data and evidence boundaries
 
