@@ -318,6 +318,16 @@ until V5-6 owner acceptance.
 
 ## 9. Deferred decisions
 
+### Owner clarification for #141
+
+After #140, the owner explicitly approved implementing the target-free budget
+backend next: input investable capital without a cash target, retain all
+existing ETFs, and add no more than five ETF codes within budget. This step
+exposes the existing budget-foundation objective through a separate public
+contract. It does not select final alternate-budget strategy formulas, planning
+grades, a frontend design or a default investment amount. Existing cash-target
+behavior and V5-3 data gates remain unchanged.
+
 ### Owner clarification for #139
 
 Allow an optional user-entered additional-capital ceiling in cash-target mode.

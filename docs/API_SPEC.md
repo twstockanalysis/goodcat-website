@@ -232,6 +232,84 @@ an internal transfer and is not counted twice in after-tax return.
 All three endpoints are public and stateless. They do not expose internal ETF-quality
 scores or assessment-confidence fields.
 
+### Target-free investable-budget allocation (#141)
+
+```http
+POST /api/v1/allocation-plans/budget-allocation
+```
+
+This additive, public, stateless endpoint returns one budget-foundation plan.
+It does not change cash-target allocation or expose new strategy/grade formulas.
+Example request (the amount is illustrative, not a default):
+
+```json
+{
+  "investable_budget_twd": "5000.00",
+  "selected_months": [1, 4, 7, 10],
+  "existing_holdings": [{"etf_code": "0050", "held_units": 10}],
+  "history_years": 3,
+  "cash_deduction_rate_pct": "0",
+  "currency": "TWD"
+}
+```
+
+Budget is required, finite, nonnegative, at most two decimal places and 16
+integer digits; null is invalid and zero means no new investment. Months are
+required (1-12), deduplicated and sorted. Existing holding inputs and bounds,
+history years (1-10, default 3), cash-deduction rate (0-100, default 0) and TWD
+currency follow the baseline conventions. Duplicate normalized holding codes
+are invalid. Cash-target fields, `target_months`, the optional cash-target cap,
+and other extra fields are rejected with sanitized HTTP 422 errors. Clients
+must not pass a budget in `target_after_tax_cash_twd`.
+
+The response has methodology `BOUNDED_BUDGET_PORTFOLIO_V5_4` and objective
+`MINIMUM_THEN_TOTAL_MONTH_CASH`. It reports selected-month current, added and
+resulting historical modeled cash without target, shortfall or TARGET_MET
+fields. Search first favors the lowest resulting selected-month cash, then
+total selected-month cash, then lower spread, budget use and complexity using
+the existing budget-foundation ordering. This is not a yield or risk ranking.
+
+`used_budget_twd` is the sum of per-ETF modeled costs rounded HALF_UP to cents;
+`remaining_budget_twd` is submitted budget minus that sum. Both exact investment
+and displayed costs are checked during search. Existing holdings consume no new
+capital and remain included; at most five codes may receive added whole shares.
+The modeled transaction-cost rate remains zero, not a broker-cost guarantee.
+
+| Status | Meaning |
+| --- | --- |
+| `AVAILABLE` | Search selected positive additions within budget; not a cash-target success or guaranteed distribution. |
+| `NO_ADDITIONS` | Zero budget, or no budget-feasible selected-month cash addition was found. Read the issue code for the reason. |
+| `NO_ELIGIBLE_ALLOCATION` | Positive budget but no candidate passed the unchanged gates. Existing facts are still returned. |
+| `UNAVAILABLE` | Existing selected-month cash or holding value is missing. No additions are calculated, even at zero budget. |
+
+`existing_holdings` always retains submitted holding facts, including nullable
+missing facts. For UNAVAILABLE, unknown monthly cash remains null and
+`resulting_holdings` is null (no computed portfolio); for the other statuses it
+contains the preserved original holdings plus additions. Known cash can remain
+visible when price, rather than cash, is missing.
+
+`candidate_evidence` contains all public-safe market eligibility items and
+their exclusion/trade-off reasons, source dates, ACTUAL/estimated basis and
+historical quality-grade availability. `snapshot_id` identifies that shared
+market evidence and is independent of budget; it is not a result hash. Internal
+scores are not serialized and do not order the budget search.
+
+Assumptions name the historical same-calendar-month basis, history years,
+deduction rate, zero modeled transaction cost, no enforced concentration cap,
+five added codes, beam width 64 and a 20,000-state ceiling. Positive-budget
+search with eligible candidates reports `BOUNDED_BEST_EFFORT` and
+`V5_4_BOUNDED_BUDGET_SEARCH`, even when `search_truncated` is false: batch
+quantities are heuristic, not exhaustive. Other states use `NOT_APPLICABLE`.
+No global maximum, personal suitability, new planning grade or public launch
+claim follows from a result. Frontend and multi-card budget integration remain
+separate work.
+
+Existing public middleware still enforces request sizes and rate limits;
+unknown holdings return HTTP 404 and unexpected failures use sanitized HTTP 500.
+No request persistence, owner credential requirement or broker connection is
+introduced. This endpoint does not extend long-term/projection endpoints to
+budget requests.
+
 ## Public ETF price history
 
 ```http

@@ -131,6 +131,18 @@ no `AI_HANDOFF.md` edit. Collaborators must verify those states live.
   with `build_allocation_results` and the test caps in the algorithm contract
   for the capped run. These are not product-default caps or service-switch authority.
 
+### Local budget-endpoint replay artifacts
+
+- Related Issue: #141. The `goodcat-v5-budget` worktree retains ignored
+  `budget-replay.log` (eight JSON-line response records and a verification
+  footer) and `budget-regression-final.log`. GitHub/Git cannot recover these files.
+- The replay reads the #133 immutable candidate at 2026-09-06. Reverify its
+  recorded hash before reuse; reproduce with the steps/test budgets in
+  `docs/V5_4_ALLOCATION_ALGORITHM.md`. No service or database switch is authorized.
+- Validation uses the sibling `goodcat-v5-cathay/.venv/Scripts/python.exe` runtime.
+  `budget-full.log` and `budget-full-final.log` predate the final response
+  serialization guard; neither is the final regression evidence.
+
 ## Safety invariants
 
 - Never record tokens, account details, cookies, personal data, production
