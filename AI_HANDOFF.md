@@ -120,6 +120,17 @@ no `AI_HANDOFF.md` edit. Collaborators must verify those states live.
 - Non-final `objectives-full.log` and `objectives-audit.log` are interrupted
   exploratory runs before the Pareto-performance correction, not final evidence.
 
+### Local capital-ceiling replay artifacts
+
+- Related Issue: #139. Ignored artifacts in `goodcat-v5-capital-cap` are
+  `data/processed/cap-unlimited-audit.json`, `cap-unlimited-audit.log`,
+  `cap-scenarios.log` and `cap-full.log`. GitHub/Git cannot recover these files.
+- Both replays read the #133 immutable candidate at 2026-09-06; no new database
+  is created. Reverify its recorded hash before reuse. Reproduce the unlimited
+  run with `deployment.v5_full_database_audit`; use its eight `build_audit_cases`
+  with `build_allocation_results` and the test caps in the algorithm contract
+  for the capped run. These are not product-default caps or service-switch authority.
+
 ## Safety invariants
 
 - Never record tokens, account details, cookies, personal data, production

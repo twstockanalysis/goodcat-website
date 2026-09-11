@@ -169,6 +169,22 @@ improvement filter hides a distinct configuration. Differences may be small;
 the quantities, required capital and modeled cash remain the comparison facts,
 not proof of material benefit. The public request/response shape is unchanged.
 
+For #139, cash-target allocation requests additionally accept optional
+`max_additional_capital_twd` (TWD, finite nonnegative decimal, at most two decimal
+places and 16 integer digits). Omitted/null means no ceiling; zero permits no
+new investment. Existing holdings and their cash remain included without using
+this allowance. Each nested result echoes the value in `assumptions`.
+
+All three strategy searches enforce the ceiling during expansion/refinement,
+on both exact cost and the sum of per-ETF costs rounded to cents. No automatic
+ceiling or improvement filter is introduced. A capped incomplete search returns
+`PARTIAL` and `NO_COMPLETE_PLAN_WITHIN_CAP`, with explicit remaining shortfalls;
+it is not a normal TARGET_MET result or proof that no feasible plan exists.
+Missing input facts and no eligible candidates retain their existing separate
+statuses. The current zero transaction-cost assumption still applies; the cap
+is not a promise of actual broker execution cost. Market-evidence snapshot IDs
+remain independent of the ceiling. Public form integration is separate V5-5 work.
+
 The nested integer result identifies methodology
 `BOUNDED_COMPLETE_PORTFOLIO_V5_4`. Cash-target feasibility is searched before
 quality or risk evidence, uses at most five added ETF codes and reports
