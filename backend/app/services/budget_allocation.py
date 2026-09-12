@@ -18,6 +18,8 @@ from backend.app.services.complete_portfolio_solver import (
 from backend.app.services.integer_allocation import _issue, _money, _resulting_holdings
 from backend.app.services.market_eligibility_index import build_market_eligibility_index
 from backend.app.services.public_planner import analyze_public_planner_baseline
+from backend.app.models.planning_metrics import PlanMetricsEntry
+from backend.app.services.planning_metrics import summarize_budget_plan
 
 
 def build_budget_allocation(
@@ -173,7 +175,9 @@ def build_budget_results(
     analysis_date = as_of_date or date.today()
     facts = _load_budget_facts(request, database_path, analysis_date)
     primary, search = _build_budget_allocation(request, analysis_date, *facts)
-    result = BudgetResultsResponse(primary=primary)
+    result = BudgetResultsResponse(primary=primary, plan_metrics=[PlanMetricsEntry(
+        plan_key=primary.objective, metrics=summarize_budget_plan(primary),
+    )])
     if primary.status != "AVAILABLE":
         return result
     seed = search.frontier[0]
@@ -204,4 +208,7 @@ def build_budget_results(
             continue
         seen[signature] = objective
         result.alternatives.append(response)
+        result.plan_metrics.append(PlanMetricsEntry(
+            plan_key=response.objective, metrics=summarize_budget_plan(response),
+        ))
     return result

@@ -13,6 +13,8 @@ from backend.app.models.allocation_results import (
     AllocationStrategyPlan,
 )
 from backend.app.models.public_planner import PublicPlannerIssue
+from backend.app.models.planning_metrics import PlanMetricsEntry
+from backend.app.services.planning_metrics import summarize_cash_target_plan
 from backend.app.services.integer_allocation import build_integer_allocation
 from backend.app.services.market_eligibility_index import (
     build_market_eligibility_index,
@@ -110,4 +112,10 @@ def build_allocation_results(
         plans=plans,
         excluded_candidates=excluded,
         strategy_issues=strategy_issues,
+        plan_metrics=[PlanMetricsEntry(
+            plan_key=plan.strategy,
+            metrics=summarize_cash_target_plan(
+                plan.result, existing_codes=[h.etf_code for h in request.existing_holdings],
+            ),
+        ) for plan in plans],
     )

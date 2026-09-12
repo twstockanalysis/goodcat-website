@@ -721,6 +721,23 @@ All searches remain bounded best effort; monthly cash is displayed at cents whil
 the floor/ranking uses exact internal cash. No planning-grade formula or frontend
 change is implied. The existing single-budget and cash-target APIs are unchanged.
 
+## Descriptive post-allocation metrics (#147)
+
+`allocation-results` and `budget-results` add `plan_metrics`: one entry per
+returned scheme, in scheme order, keyed by its existing strategy/objective.
+The independent `metrics` object summarizes target attainment, selected-month
+cash/spread, additional capital and usage, added/resulting counts and maximum
+resulting-position percentage. It contains no score, weight, grade or risk label.
+No new request fields or single-plan endpoint fields are introduced.
+
+Amounts summarize displayed response values; target attainment follows the
+original solver status, never rounded cash. Budget target attainment is
+NOT_APPLICABLE. Missing metrics and ratios with missing/zero denominators are
+null with reason codes, not zero grades. See
+[planning metrics contract](PLANNING_METRICS_CONTRACT.md) for exact field
+definitions and missing/zero behavior. Existing strategy ordering, evidence,
+security boundaries, financial assumptions and nested plan results are unchanged.
+
 ## Status behavior
 
 ```text

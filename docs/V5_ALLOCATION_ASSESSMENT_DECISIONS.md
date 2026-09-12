@@ -318,6 +318,16 @@ until V5-6 owner acceptance.
 
 ## 9. Deferred decisions
 
+### Owner clarification for #147
+
+After #146, the owner approved implementing objective post-allocation indicators
+before a planning-grade formula: target achievement, capital use, selected-month
+spread and concentration. Present them separately after allocation; do not feed
+them into search or change strategy order. No aggregate score, A/B/C grade,
+weight or threshold is approved. Missing values remain explicitly unavailable.
+The descriptive backend contract is `PLANNING_METRICS_CONTRACT.md`; representative
+output may inform a later owner decision on actual grading.
+
 ### Owner clarification for #145
 
 After #144, the owner approved three budget search orders: preserve the primary

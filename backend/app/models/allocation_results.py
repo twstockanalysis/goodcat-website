@@ -11,6 +11,7 @@ from backend.app.models.integer_allocation import (
 )
 from backend.app.models.market_eligibility import MarketEligibilityReason
 from backend.app.models.public_planner import PublicPlannerBaseModel, PublicPlannerIssue
+from backend.app.models.planning_metrics import PlanMetricsEntry
 
 
 class AllocationStrategy(StrEnum):
@@ -49,6 +50,7 @@ class AllocationResultsResponse(PublicPlannerBaseModel):
         default_factory=list
     )
     strategy_issues: list[PublicPlannerIssue] = Field(default_factory=list)
+    plan_metrics: list[PlanMetricsEntry] = Field(default_factory=list, max_length=3)
     estimate_label: str = (
         "依歷史資料建立的配置情境，非投資建議、下單指示或未來績效保證"
     )

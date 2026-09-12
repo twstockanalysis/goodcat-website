@@ -164,6 +164,19 @@ no `AI_HANDOFF.md` edit. Collaborators must verify those states live.
 - Validation uses sibling `goodcat-v5-cathay/.venv/Scripts/python.exe`.
   These local artifacts do not authorize a service switch or deployment.
 
+### Local planning-metrics validation artifacts
+
+- Related Issue: #147. Ignored `metrics-full.log` and `metrics-replay.log` reside
+  in `D:/project/goodcat/reports/worktrees/goodcat-v5-plan-metrics`; Git cannot
+  recover these artifacts. This nested worktree uses the shared checkout's
+  already-ignored `reports/` directory without switching its branch.
+- The replay reads the #133 candidate at 2026-09-06. It compares all pre-existing
+  cash-target fields against the `goodcat-v5-budget-strategies` worktree and all
+  budget fields against that worktree's `strategies-replay.log`, removing only
+  the new top-level `plan_metrics` field. Reverify the database hash before reuse.
+- Validation uses the `goodcat-v5-cathay/.venv/Scripts/python.exe` runtime at the
+  sibling-worktree root recorded above. No database or service switch is implied.
+
 ## Safety invariants
 
 - Never record tokens, account details, cookies, personal data, production
