@@ -427,6 +427,91 @@ comparing against the recorded prior budget replay. Compare full candidate
 evidence, snapshots, original holdings and zero/unavailable payloads, not only
 the summary cash values; verify candidate hash and integrity before and after.
 
+## Budget objective-aware results (#145)
+
+The additive `budget-results` endpoint loads baseline/eligibility facts once and
+returns the existing single-budget response as `primary`, without changing its
+schema or search order. Only an AVAILABLE primary starts alternate searches:
+
+- `MONTHLY_BALANCED`: first satisfy the primary's exact, unrounded minimum cash
+  across selected months; then minimize maximum minus minimum resulting cash.
+  Remaining ties use the unchanged primary ordering.
+- `TOTAL_MONTH_CASH`: maximize selected-month resulting cash summed across those
+  months; remaining ties use primary ordering. An individual month may decrease.
+  This objective is not a high-risk label or a forecast of future distributions.
+
+Both searches use the same gated inputs, immutable original cash and budget.
+They validate and retain the primary as a feasible seed, so the selected
+alternate cannot worsen its own objective versus that seed. Balanced filtering
+includes spread in dominance: higher per-month cash alone must not remove a more
+balanced trade-off. Partial beam states order by floor deficit before spread;
+only final states satisfying the exact floor can be returned. Total-cash beam
+and frontier retention use total cash first. Exchange refinement uses the same
+objective and bounds; balance adds integer neighbours of floor intersections
+and a zero-addition exchange option. Only proposed additions can be removed.
+
+Each strategy has a separate 64-state beam and 20,000-state limit; the whole
+request has at most 60,000 explored states. Reused seed validation is not a new
+search expansion. Search evidence is retained even when an alternate is omitted.
+This remains bounded best effort, not exhaustive search or global optimality.
+No cross-budget monotonicity or minimum practical improvement is promised.
+
+Exact `(ETF code, added shares)` duplicates are omitted in primary/balanced/total
+order. A zero-addition alternate selected under a zero cash floor is recorded as
+`NO_ADDITIONS` in omission evidence, not fabricated into an ordinary addition
+card. A non-AVAILABLE primary returns its explicit existing state and no
+alternate searches. There is no rule forcing two or three normal cards.
+
+The floor is exposed at exact solver precision. Monthly amounts remain rounded
+HALF_UP to cents, so displayed spreads and sums can differ from the exact
+objective by rounding; rankings must not be recomputed from displayed amounts.
+All original holdings, exact and per-position rounded capital ceilings, five
+added-code limits and evidence semantics remain mandatory. No quality/risk/plan
+grade formula, cash-target change, data import, live service switch or frontend
+change is included.
+
+### Budget-strategy validation (2026-09-12)
+
+Focused validation passed 55 tests; full regression passed 1,244 tests in
+221.132 seconds. Compileall and `git diff --check` passed. Tests exercise three
+distinct objectives, spread-aware dominance, exact floor preservation, seeded
+budget/count/state bounds, primary compatibility, shared evidence loading,
+duplicate and zero-addition omissions, JSON round trips and API error boundaries.
+
+The fixed 2026-09-06 eight-case replay uses the same #141 test budgets (not
+defaults). Every primary response matches the complete #143 replay payload,
+including all 8 x 263 candidate records, snapshot IDs, original holding facts,
+and zero/unavailable semantics. All returned alternatives preserve that evidence,
+original units, budget reconciliation and maximum five added codes. The five
+positive cases return 2 / 2 / 2 / 3 / 3 plans; the three quarterly balanced
+searches duplicate the primary and are explicitly omitted. All positive searches
+disclose truncation. Zero and unavailable cases start no alternate searches.
+
+Selected illustrative trade-offs, using displayed TWD cash:
+
+| Case / objective | Used budget | Minimum month | Selected-month total | Month spread |
+| --- | ---: | ---: | ---: | ---: |
+| No holdings, quarterly / primary | 4,993.78 | 106.59 | 497.15 | 70.05 |
+| No holdings, quarterly / total | 4,999.68 | 106.18 | 511.30 | 77.18 |
+| No holdings, all months / primary | 999,977.10 | 3,148.17 | 49,804.03 | 3,933.09 |
+| No holdings, all months / balanced | 999,985.64 | 3,148.45 | 49,805.09 | 3,932.81 |
+| No holdings, all months / total | 999,996.76 | 0.00 | 102,265.33 | 36,674.19 |
+| 00929 held, all months / primary | 999,995.53 | 3,873.76 | 58,478.19 | 2,985.95 |
+| 00929 held, all months / balanced | 999,943.05 | 3,873.76 | 58,583.05 | 2,861.28 |
+| 00929 held, all months / total | 999,996.76 | 93.33 | 103,731.99 | 36,757.53 |
+
+The no-holding monthly balanced improvement is small and adds a fifth code;
+the total-first cases can leave very low or zero months. Distinct results are
+not uniformly better, lower risk, or accepted for practical usefulness. No
+browser acceptance, performance benchmark or global-optimum proof was performed.
+
+Candidate SHA-256 remains
+`1c52c0edd0d0ad644f07e427c3e10d6a33e222f9b650f50b7c403845b951250e`,
+SQLite integrity is `ok`, foreign-key violations zero. Reproduce with
+`build_audit_cases`, the recorded candidate/date/budgets and `build_budget_results`;
+compare `primary` with the prior `refinement-replay.log` payload and verify hashes
+before/after. No production database or running service was changed.
+
 ## Missing data and evidence boundaries
 
 The solver accepts twelve explicit monthly cash values for each gated

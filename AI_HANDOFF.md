@@ -153,6 +153,17 @@ no `AI_HANDOFF.md` edit. Collaborators must verify those states live.
   test budgets. Validation uses `goodcat-v5-cathay/.venv/Scripts/python.exe`.
 - These artifacts authorize no data import, live service switch or deployment.
 
+### Local budget-strategy replay artifacts
+
+- Related Issue: #145. Ignored `strategies-replay.log` and `strategies-full.log`
+  in sibling worktree `goodcat-v5-budget-strategies` cannot be recovered from Git.
+- Replay reads the #133 immutable candidate at 2026-09-06 and compares primary
+  payloads against `goodcat-v5-budget-refine/refinement-replay.log`. Reverify the
+  candidate hash before reuse. Use the eight fixtures/test budgets in the V5-4
+  algorithm contract with `build_budget_results`; never modify the database.
+- Validation uses sibling `goodcat-v5-cathay/.venv/Scripts/python.exe`.
+  These local artifacts do not authorize a service switch or deployment.
+
 ## Safety invariants
 
 - Never record tokens, account details, cookies, personal data, production

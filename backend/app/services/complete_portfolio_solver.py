@@ -494,15 +494,29 @@ def _budget_dominates(left: BudgetPortfolioPlan, right: BudgetPortfolioPlan) -> 
     return no_worse and strictly_better
 
 
+def _budget_strategy_order(plan, objective, minimum_cash_floor):
+    if objective == "MONTHLY_BALANCED":
+        return (max(minimum_cash_floor - plan.minimum_month_cash, _ZERO),
+                plan.month_imbalance, *_budget_order(plan))
+    if objective == "TOTAL_MONTH_CASH":
+        return (-plan.total_month_cash, *_budget_order(plan))
+    return _budget_order(plan)
+
+
 def _non_dominated_budget(
     plans: Sequence[BudgetPortfolioPlan],
+    objective: str = "MINIMUM_THEN_TOTAL_MONTH_CASH",
+    minimum_cash_floor: Decimal = _ZERO,
 ) -> tuple[BudgetPortfolioPlan, ...]:
-    ordered = sorted({plan.shares: plan for plan in plans}.values(), key=_budget_order)
+    ordered = sorted({plan.shares: plan for plan in plans}.values(),
+                     key=lambda p: _budget_strategy_order(p, objective, minimum_cash_floor))
     skyline: list[tuple[BudgetPortfolioPlan, tuple[Decimal, ...]]] = []
     for plan in ordered:
         values = (plan.used_budget, Decimal(plan.added_etf_count), *(
             -cash for _, cash in plan.monthly_resulting_cash
         ))
+        if objective == "MONTHLY_BALANCED":
+            values += (plan.month_imbalance,)
         if any(_values_dominate(other, values) for _, other in skyline):
             continue
         skyline = [(p, v) for p, v in skyline if not _values_dominate(values, v)]
@@ -519,6 +533,8 @@ def solve_budget_frontier(
     max_added_etfs: int = 5,
     beam_width: int = 64,
     max_expansions: int = 20_000,
+    objective: str = "MINIMUM_THEN_TOTAL_MONTH_CASH",
+    seed_plan: BudgetPortfolioPlan | None = None,
 ) -> BudgetPortfolioSearch:
     """Build a bounded whole-share budget frontier without exceeding budget."""
 
@@ -539,6 +555,33 @@ def solve_budget_frontier(
     if (max_added_etfs < 1 or max_added_etfs > 5
             or beam_width < 1 or max_expansions < 1):
         raise ValueError("invalid budget search bounds")
+    if objective not in {"MINIMUM_THEN_TOTAL_MONTH_CASH", "MONTHLY_BALANCED", "TOTAL_MONTH_CASH"}:
+        raise ValueError("unknown budget objective")
+    if objective != "MINIMUM_THEN_TOTAL_MONTH_CASH" and seed_plan is None:
+        raise ValueError("alternate searches require the primary plan")
+    if objective == "MINIMUM_THEN_TOTAL_MONTH_CASH" and seed_plan is not None:
+        raise ValueError("the primary search cannot be seeded")
+    if seed_plan is not None:
+        by_code = {c.etf_code: c for c in ordered}
+        if (len(seed_plan.shares) > max_added_etfs
+                or len(dict(seed_plan.shares)) != len(seed_plan.shares)
+                or any(c not in by_code or not isinstance(q, int) or q <= 0
+                       for c, q in seed_plan.shares)):
+            raise ValueError("invalid primary shares")
+        exact = sum((by_code[c].reference_price * q for c, q in seed_plan.shares), _ZERO)
+        displayed = sum(((by_code[c].reference_price * q).quantize(
+            Decimal('.01'), rounding=ROUND_HALF_UP) for c, q in seed_plan.shares), _ZERO)
+        added = tuple((m, sum((by_code[c].monthly_cash_per_share[m - 1] * q
+                              for c, q in seed_plan.shares), _ZERO)) for m in months)
+        reconstructed = BudgetPortfolioPlan(
+            tuple(sorted(seed_plan.shares)), exact, added,
+            tuple((m, current.get(m, _ZERO) + cash) for m, cash in added),
+        )
+        if seed_plan != reconstructed or exact > investable_budget or displayed > investable_budget:
+            raise ValueError("primary plan does not match this request")
+    floor = seed_plan.minimum_month_cash if seed_plan is not None else _ZERO
+    order = lambda p: _budget_strategy_order(p, objective, floor)
+    retain = lambda plans: _non_dominated_budget(plans, objective, floor)
 
     initial = _State((), _ZERO, tuple(_ZERO for _ in months))
     active = [initial]
@@ -546,6 +589,8 @@ def solve_budget_frontier(
         (), _ZERO, tuple((month, _ZERO) for month in months),
         tuple((month, current.get(month, _ZERO)) for month in months),
     )]
+    if seed_plan is not None:
+        plan_pool.append(seed_plan)
     prices = {item.etf_code: item.reference_price for item in ordered}
     seen = {initial.shares}
     explored = 1
@@ -620,10 +665,10 @@ def solve_budget_frontier(
         if not next_states:
             break
         if len(plan_pool) > beam_width * 4:
-            plan_pool = list(_non_dominated_budget(plan_pool))[:beam_width]
+            plan_pool = list(retain(plan_pool))[:beam_width]
             truncated = True
         next_states.sort(
-            key=lambda state: _budget_order(
+            key=lambda state: order(
                 BudgetPortfolioPlan(
                     state.shares,
                     state.capital,
@@ -643,7 +688,14 @@ def solve_budget_frontier(
             truncated = True
         active = next_states[:beam_width]
 
-    frontier = _non_dominated_budget(plan_pool)
+    frontier = retain(plan_pool + ([seed_plan] if seed_plan is not None else []))
+    if objective == "MONTHLY_BALANCED":
+        frontier = tuple(p for p in frontier if p.minimum_month_cash >= floor)
+    if objective != "MINIMUM_THEN_TOTAL_MONTH_CASH":
+        return _refine_budget_frontier(
+            frontier, ordered, months, current, investable_budget,
+            max_added_etfs, explored, max_expansions, truncated, objective, floor,
+        )
     return _refine_budget_frontier(
         frontier, ordered, months, current, investable_budget,
         max_added_etfs, explored, max_expansions, truncated,
@@ -656,6 +708,7 @@ def _budget_exchange_quantities(
     destination: CompletePortfolioCandidate,
     source_quantity: int,
     remaining_budget: Decimal,
+    minimum_cash_floor: Decimal | None = None,
 ) -> tuple[int, ...]:
     """Integer neighbours of continuous month-line crossings for one exchange.
 
@@ -670,6 +723,14 @@ def _budget_exchange_quantities(
                   for m, amount in cash]
     slopes = [price_ratio * destination.monthly_cash_per_share[m - 1]
               - source.monthly_cash_per_share[m - 1] for m, _ in cash]
+    if minimum_cash_floor is not None:
+        for intercept, slope in zip(intercepts, slopes, strict=True):
+            if slope:
+                crossing = (minimum_cash_floor - intercept) / slope
+                if 0 < crossing < source_quantity:
+                    ceiling = _ceil_quantity(crossing)
+                    quantities.update(q for q in (ceiling - 1, ceiling, ceiling + 1)
+                                      if 0 <= q <= source_quantity)
     for i in range(len(cash)):
         for j in range(i + 1, len(cash)):
             difference = slopes[i] - slopes[j]
@@ -693,9 +754,13 @@ def _refine_budget_frontier(
     explored: int,
     max_expansions: int,
     truncated: bool,
+    objective: str = "MINIMUM_THEN_TOTAL_MONTH_CASH",
+    minimum_cash_floor: Decimal = _ZERO,
 ) -> BudgetPortfolioSearch:
     """Improve the incumbent using only unused state capacity from batch search."""
     by_code = {c.etf_code: c for c in candidates}
+    order = lambda p: _budget_strategy_order(p, objective, minimum_cash_floor)
+    retain = lambda plans: _non_dominated_budget(plans, objective, minimum_cash_floor)
     seen = {p.shares for p in frontier}
     incumbent = frontier[0]
     # No available refinement work when the original search exhausted its cap
@@ -715,14 +780,18 @@ def _refine_budget_frontier(
                     continue
                 removals = _budget_exchange_quantities(
                     start, source, destination, source_quantity, remaining,
+                    minimum_cash_floor if objective == "MONTHLY_BALANCED" else None,
                 )
                 for removed in removals:
                     available = remaining + source.reference_price * removed
                     affordable = int(available // destination.reference_price)
-                    for added in sorted({affordable, max(0, affordable - 1)}):
+                    quantities = {affordable, max(0, affordable - 1)}
+                    if objective == "MONTHLY_BALANCED":
+                        quantities.add(0)
+                    for added in sorted(quantities):
                         if explored >= max_expansions:
                             return BudgetPortfolioSearch(
-                                _non_dominated_budget((*frontier, *improved)), explored, True,
+                                retain((*frontier, *improved)), explored, True,
                             )
                         # Count every attempted exchange (including duplicate or
                         # rejected vectors); the public cap covers both phases.
@@ -749,15 +818,19 @@ def _refine_budget_frontier(
                             signature, exact, added_cash,
                             tuple((m, current.get(m, _ZERO) + cash) for m, cash in added_cash),
                         )
-                        if _budget_order(plan) < _budget_order(incumbent) and not any(
-                            _budget_dominates(old, plan) for old in frontier
+                        if objective == "MONTHLY_BALANCED" and plan.minimum_month_cash < minimum_cash_floor:
+                            continue
+                        if order(plan) < order(incumbent) and not any(
+                            _budget_dominates(old, plan) and (
+                                objective != "MONTHLY_BALANCED" or old.month_imbalance <= plan.month_imbalance
+                            ) for old in frontier
                         ):
                             improved.append(plan)
                             incumbent = plan
         if not improved:
             break
-        frontier = _non_dominated_budget((*frontier, *improved))
+        frontier = retain((*frontier, *improved))
         incumbent = frontier[0]
-        if _budget_order(incumbent) >= _budget_order(start):
+        if order(incumbent) >= order(start):
             break
     return BudgetPortfolioSearch(frontier, explored, truncated or explored >= max_expansions)
