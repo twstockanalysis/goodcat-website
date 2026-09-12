@@ -512,6 +512,17 @@ SQLite integrity is `ok`, foreign-key violations zero. Reproduce with
 compare `primary` with the prior `refinement-replay.log` payload and verify hashes
 before/after. No production database or running service was changed.
 
+## Descriptive post-allocation indicators (#147)
+
+Cash-target and budget multi-result services now append independent metrics only
+after selecting and deduplicating their existing plans. The projection reuses
+public response amounts and resulting-position percentages; it neither calls a
+solver nor changes search inputs, order, gates or selected portfolios. No score,
+weight, grade, risk band or hiding threshold is added. Exact feasibility status
+remains authoritative even when displayed shortfalls round to zero. Missing
+facts and zero denominators are explicit, not neutral or poor ratings. See
+`PLANNING_METRICS_CONTRACT.md` for definitions, API placement and limitations.
+
 ## Missing data and evidence boundaries
 
 The solver accepts twelve explicit monthly cash values for each gated

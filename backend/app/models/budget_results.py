@@ -7,6 +7,7 @@ from pydantic import Field
 
 from backend.app.models.budget_allocation import BudgetAllocationResponse
 from backend.app.models.public_planner import PublicPlannerBaseModel, PublicPlannerIssue
+from backend.app.models.planning_metrics import PlanMetricsEntry
 
 
 BudgetAlternateObjective = Literal["MONTHLY_BALANCED", "TOTAL_MONTH_CASH"]
@@ -33,3 +34,4 @@ class BudgetResultsResponse(PublicPlannerBaseModel):
     max_explored_states_per_strategy: Literal[20000] = 20000
     max_total_explored_states: Literal[60000] = 60000
     issues: list[PublicPlannerIssue] = Field(default_factory=list)
+    plan_metrics: list[PlanMetricsEntry] = Field(default_factory=list, max_length=3)
