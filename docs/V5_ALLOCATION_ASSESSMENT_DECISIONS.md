@@ -318,6 +318,18 @@ until V5-6 owner acceptance.
 
 ## 9. Deferred decisions
 
+### Owner clarification for #145
+
+After #144, the owner approved three budget search orders: preserve the primary
+minimum-then-total selected-month cash objective; minimize selected-month spread
+without reducing the primary's minimum month cash; and maximize selected-month
+total cash, allowing individual months to decrease. The third objective replaces
+the provisional "more aggressive" theme as a calculation description, not a
+high-risk grade. Every scheme retains original holdings, whole shares, no more
+than five added codes and the submitted budget. Exact duplicate portfolios are
+omitted without an improvement threshold. Grade formulas, final card titles,
+scenario changes and frontend integration remain deferred.
+
 ### Owner clarification for #141
 
 After #140, the owner explicitly approved implementing the target-free budget

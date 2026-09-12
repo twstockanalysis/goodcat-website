@@ -9,6 +9,9 @@ from backend.app.models.budget_allocation import (
     BudgetAllocationRequest, BudgetAllocationResponse,
 )
 from backend.app.models.integer_allocation import IntegerAllocationRequest
+from backend.app.models.budget_results import (
+    BudgetResultsResponse, BudgetStrategyResponse, BudgetStrategySearchEvidence,
+)
 from backend.app.services.complete_portfolio_solver import (
     CompletePortfolioCandidate, solve_budget_frontier,
 )
@@ -22,6 +25,11 @@ def build_budget_allocation(
     *, as_of_date: date | None = None,
 ) -> BudgetAllocationResponse:
     analysis_date = as_of_date or date.today()
+    facts = _load_budget_facts(request, database_path, analysis_date)
+    return _build_budget_allocation(request, analysis_date, *facts)[0]
+
+
+def _load_budget_facts(request, database_path, analysis_date):
     # Compatibility envelope for read-only fact loaders only. The zero target
     # is neither submitted by the user nor passed to an allocation solver;
     # baseline target/shortfall fields are discarded. Budget never becomes target.
@@ -36,6 +44,13 @@ def build_budget_allocation(
     built = build_market_eligibility_index(
         facts_request, database_path, as_of_date=analysis_date,
     )
+    return facts_request, baseline, built
+
+
+def _build_budget_allocation(
+    request, analysis_date, facts_request, baseline, built,
+    objective="MINIMUM_THEN_TOTAL_MONTH_CASH", seed_plan=None,
+):
     index = built.response
     current = {m: baseline.monthly_cash_flow[m - 1].after_tax_cash for m in request.selected_months}
     issues = list(baseline.issues)
@@ -66,7 +81,7 @@ def build_budget_allocation(
             **common, status="UNAVAILABLE", optimality="NOT_APPLICABLE",
             used_budget_twd=0, remaining_budget_twd=request.investable_budget_twd,
             monthly_results=empty_months, issues=issues,
-        )
+        ), None
 
     candidates = {c.public_item.etf_code: c for c in built.ranked_eligible_candidates}
     prices = {code: c.public_item.reference_price for code, c in candidates.items()}
@@ -77,6 +92,7 @@ def build_budget_allocation(
         selected_months=request.selected_months,
         investable_budget=request.investable_budget_twd,
         current_cash_by_month=current,
+        **({"objective": objective, "seed_plan": seed_plan} if seed_plan is not None else {}),
     )
     plan = search.frontier[0]
     shares = dict(plan.shares)
@@ -115,7 +131,20 @@ def build_budget_allocation(
             "V5_4_BOUNDED_BUDGET_SEARCH",
             "採有界整股批次搜尋，並非全域最大現金流保證；未截斷也不代表窮舉所有股數。",
         ))
-    return BudgetAllocationResponse(
+    response_type = BudgetAllocationResponse
+    if seed_plan is not None:
+        response_type = BudgetStrategyResponse
+        common.update(
+            objective=objective,
+            minimum_month_cash_floor=(seed_plan.minimum_month_cash
+                                      if objective == "MONTHLY_BALANCED" else None),
+            tradeoff=(
+                "以主方案的最低月現金流為下限，優先縮小所選月份差距；不代表風險較低。"
+                if objective == "MONTHLY_BALANCED" else
+                "優先增加所選月份現金流總額，個別月份可能較少；不等同高風險評等。"
+            ),
+        )
+    return response_type(
         **common, status=status,
         optimality=("BOUNDED_BEST_EFFORT" if request.investable_budget_twd > 0 and candidates
                     else "NOT_APPLICABLE"),
@@ -134,4 +163,45 @@ def build_budget_allocation(
         ) for m in request.selected_months],
         search_explored_states=search.explored_states, search_truncated=search.truncated,
         issues=issues,
-    )
+    ), search
+
+
+def build_budget_results(
+    request: BudgetAllocationRequest, database_path: str | Path,
+    *, as_of_date: date | None = None,
+) -> BudgetResultsResponse:
+    analysis_date = as_of_date or date.today()
+    facts = _load_budget_facts(request, database_path, analysis_date)
+    primary, search = _build_budget_allocation(request, analysis_date, *facts)
+    result = BudgetResultsResponse(primary=primary)
+    if primary.status != "AVAILABLE":
+        return result
+    seed = search.frontier[0]
+    seen = {seed.shares: primary.objective}
+    for objective in ("MONTHLY_BALANCED", "TOTAL_MONTH_CASH"):
+        response, alternate = _build_budget_allocation(
+            request, analysis_date, *facts, objective=objective, seed_plan=seed,
+        )
+        signature = alternate.frontier[0].shares
+        duplicate = seen.get(signature)
+        result.alternate_searches.append(BudgetStrategySearchEvidence(
+            objective=objective, explored_states=alternate.explored_states,
+            truncated=alternate.truncated, duplicate_of=duplicate,
+            omission_reason=("DUPLICATE" if duplicate is not None else
+                             "NO_ADDITIONS" if response.status != "AVAILABLE" else None),
+        ))
+        if duplicate is not None:
+            result.issues.append(_issue(
+                "DUPLICATE_BUDGET_STRATEGY_OMITTED",
+                f"{objective} 與 {duplicate} 的新增股數完全相同，省略重複方案。",
+            ))
+            continue
+        if response.status != "AVAILABLE":
+            result.issues.append(_issue(
+                "NO_ADDITION_BUDGET_STRATEGY_OMITTED",
+                f"{objective} 選出不新增的情境，未建立一般新增配置方案；不代表無其他可行配置。",
+            ))
+            continue
+        seen[signature] = objective
+        result.alternatives.append(response)
+    return result

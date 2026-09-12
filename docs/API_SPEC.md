@@ -688,6 +688,39 @@ GET /api/v1/data-quality/dividends/review-queue/{queue_id}
 
 The M8 data-quality API is read-only.
 
+## Budget strategy results
+
+`POST /api/v1/allocation-plans/budget-results` accepts the exact same target-free
+request as `budget-allocation`: required `investable_budget_twd` and
+`selected_months`, optional original holdings, history years and cash deduction.
+Cash targets, capital-ceiling fields and unknown fields are rejected. It is
+public, stateless and read-only with the existing validation, request limits,
+rate limits, 404 domain boundary and sanitized 500 handling.
+
+The response contains:
+
+- `primary`: the unchanged `BudgetAllocationResponse` from the single-plan API.
+- `alternatives`: zero to two distinct AVAILABLE responses, in balanced then
+  total-cash order. Each inherits the budget evidence/holding/cost fields and
+  adds `tradeoff` plus `minimum_month_cash_floor` (exact primary minimum for
+  MONTHLY_BALANCED, null for TOTAL_MONTH_CASH). The objective literal explicitly
+  identifies the calculation, not quality or risk.
+- `alternate_searches`: search states/truncation for each attempted alternate,
+  including omitted results. `duplicate_of` identifies an earlier objective;
+  `omission_reason` is DUPLICATE, NO_ADDITIONS or null.
+- `max_explored_states_per_strategy=20000`,
+  `max_total_explored_states=60000`, and omission `issues`.
+
+Non-AVAILABLE primary states do not start alternate searches. Duplicate added
+share signatures are omitted, not relabeled to fill a card count. Balance
+minimizes selected-month spread subject to the exact primary minimum cash floor;
+total cash maximizes the selected-month sum and may reduce individual months.
+Every alternate preserves original holdings, at most five added ETF codes and
+both exact and rounded budget ceilings. Transaction costs remain modeled as zero.
+All searches remain bounded best effort; monthly cash is displayed at cents while
+the floor/ranking uses exact internal cash. No planning-grade formula or frontend
+change is implied. The existing single-budget and cash-target APIs are unchanged.
+
 ## Status behavior
 
 ```text
