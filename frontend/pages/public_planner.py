@@ -21,6 +21,7 @@ from frontend.ui.assessment import (
 from frontend.ui.formatters import format_number
 from frontend.ui.goodcat import GoodCatState, get_goodcat_presentation
 from frontend.ui.states import loading_state
+from frontend.ui.planning_metrics import render_planning_metrics
 
 
 MONTH_OPTIONS = list(range(1, 13))
@@ -751,6 +752,7 @@ def render_allocation_results(payload: dict[str, Any]) -> str:
             render_plan_preview(preview_plan)
 
     labels = [plan["label"] for plan in plans]
+    render_planning_metrics(payload)
     selected_label = labels[0]
     if len(labels) > 1:
         selected_label = st.segmented_control(
