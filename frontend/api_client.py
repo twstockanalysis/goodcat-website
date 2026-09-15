@@ -2,6 +2,8 @@
 
 import httpx
 
+from frontend.api.budget_planner import fetch_budget_results, validate_budget_results
+
 from frontend.api.errors import (
     APIClientError,
     APIConnectionError,
