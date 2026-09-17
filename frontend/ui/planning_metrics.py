@@ -1,4 +1,4 @@
-"""Display existing cash-target facts without scoring or recalculating plans."""
+"""Display existing allocation facts without scoring or recalculating plans."""
 
 from decimal import Decimal, InvalidOperation
 
@@ -37,7 +37,7 @@ def _number(value, *, percentage=False):
     return f"{number:,.2f}"
 
 
-def build_planning_metric_rows(payload):
+def build_planning_metric_rows(payload, *, mode="CASH_TARGET"):
     """Fail closed per plan; absent optional metadata never breaks old results."""
     entries = payload.get("plan_metrics")
     entries = entries if isinstance(entries, list) else []
@@ -56,17 +56,22 @@ def build_planning_metric_rows(payload):
                         and len(set(months)) == len(months))
         expected_status = {"TARGET_MET": "MET", "PARTIAL": "NOT_MET",
                            "NO_ELIGIBLE_ALLOCATION": "NOT_MET", "UNAVAILABLE": "UNAVAILABLE"}
+        if mode == "BUDGET":
+            expected_status = dict.fromkeys(
+                ("AVAILABLE", "NO_ADDITIONS", "NO_ELIGIBLE_ALLOCATION", "UNAVAILABLE"),
+                "NOT_APPLICABLE")
         valid = (isinstance(metric, dict) and valid_months
                  and metric.get("methodology") == "DESCRIPTIVE_PLAN_METRICS_V5_4"
                  and metric.get("amount_basis") == "DISPLAYED_RESPONSE_AMOUNTS"
-                 and metric.get("mode") == "CASH_TARGET"
+                 and metric.get("mode") == mode
                  and isinstance(metric.get("source_status"), str)
                  and metric.get("source_status") in expected_status
                  and metric.get("source_status") == result.get("status")
                  and metric.get("target_attainment") == expected_status.get(result.get("status"))
                  and metric.get("selected_months") == months)
         rows[0][column] = "、".join(map(str, months)) if valid_months else MISSING
-        rows[1][column] = ({"MET": "已達標", "NOT_MET": "未達標", "UNAVAILABLE": "資料不足"}
+        rows[1][column] = ({"MET": "已達標", "NOT_MET": "未達標", "UNAVAILABLE": "資料不足",
+                           "NOT_APPLICABLE": "不適用（未設定現金流目標）"}
                            [metric["target_attainment"]] if valid else MISSING)
         for row, (field, _) in zip(rows[2:-1], FIELDS, strict=True):
             row[column] = (_number(metric.get(field), percentage=field.endswith("_pct"))
@@ -84,6 +89,26 @@ def build_planning_metric_rows(payload):
             messages.append("指標未提供或與此方案不一致；原方案仍可查看。")
         rows[-1][column] = "；".join(dict.fromkeys(messages)) or "無額外指標提醒"
     return rows
+
+
+def build_budget_metric_rows(payload, labels):
+    """Adapt plan identity only; never fabricate or recalculate budget metrics."""
+    plans = [payload["primary"], *payload["alternatives"]]
+    adapted = {"plans": [
+        {"strategy": plan["objective"], "label": labels[plan["objective"]],
+         "result": {"status": plan["status"], "target_months": plan["selected_months"]}}
+        for plan in plans], "plan_metrics": payload.get("plan_metrics")}
+    rows = build_planning_metric_rows(adapted, mode="BUDGET")
+    rows[0]["指標"] = "比較月份"
+    return rows
+
+
+def render_budget_metrics(payload, labels):
+    st.markdown("#### 方案客觀指標比較")
+    st.caption(NOTE)
+    st.caption("預算模式未設定現金流目標，目標達成不適用；數字僅描述各方案。")
+    st.dataframe(build_budget_metric_rows(payload, labels), hide_index=True,
+                 width="stretch", height="content", key="budget-metric-comparison")
 
 
 def render_planning_metrics(payload):
