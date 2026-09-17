@@ -1161,6 +1161,18 @@ def render_public_planner() -> None:
 
     render_page_title("股利試算")
 
+    mode = st.radio("試算模式", ["現金流目標", "投入預算"], horizontal=True,
+                    key="public_planner_mode")
+    if st.session_state.get("public_planner_last_mode", mode) != mode:
+        for key in (RESULT_STATE_KEY, RESULT_INPUT_SIGNATURE_STATE_KEY,
+                    "budget_planner_result", "budget_planner_signature"):
+            st.session_state.pop(key, None)
+    st.session_state["public_planner_last_mode"] = mode
+    if mode == "投入預算":
+        from frontend.pages.budget_planner import render_budget_planner
+        render_budget_planner()
+        return
+
     st.session_state.setdefault(TARGET_MONTHS_STATE_KEY, MONTH_OPTIONS)
     st.session_state.setdefault(
         HOLDING_ROWS_STATE_KEY,
