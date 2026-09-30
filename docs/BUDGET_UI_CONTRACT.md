@@ -29,3 +29,16 @@ See the [official widget reference](https://docs.streamlit.io/develop/api-refere
 Automated AppTest acceptance covers form routing, blank/zero/invalid inputs,
 rendering, edit/failure invalidation and mode isolation. Browser/mobile visual
 acceptance and owner usefulness acceptance are separate from automated tests.
+
+## Common descriptive comparison (Issue #155)
+
+Budget results display the same cash, capital-use and concentration fields and
+units as cash-target results, sourced only from returned `plan_metrics`. Columns
+follow returned objective order, matched by unique plan key, not metadata order.
+The months row describes comparison months; target attainment is not applicable
+because budget mode has no cash target. No score, ranking or recalculation is
+introduced. Missing, duplicate or mismatched metadata displays unavailable while
+original result details remain visible. Unavailable plans suppress calculated
+metrics even if supplied, retaining only the submitted capital limit. Zero budget
+usage remains unavailable, not zero percent, as supplied by the backend contract.
+Automated table and page tests do not replace browser or owner acceptance.

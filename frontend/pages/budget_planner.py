@@ -8,6 +8,7 @@ import streamlit as st
 from frontend.api_client import APIClientError, fetch_budget_results
 from frontend.config import get_api_base_url
 from frontend.ui.formatters import format_number
+from frontend.ui.planning_metrics import render_budget_metrics
 
 
 RESULT = "budget_planner_result"
@@ -100,6 +101,7 @@ def render_budget_results(payload):
                     st.warning("搜尋受到上限限制，不保證全域最佳配置。")
                 st.caption(plan.get("estimate_label", "歷史情境，不保證未來配息。"))
     _messages(payload.get("issues", []))
+    render_budget_metrics(payload, LABELS)
     with st.expander("查看候選排除原因與資料基礎"):
         basis = {"ACTUAL": "正式組成", "ESTIMATED_FALLBACK": "估算組成"}
         st.caption("估算組成不是正式 76W；未列出的持股或組成仍屬未知，不補零。")
